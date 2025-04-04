@@ -671,7 +671,7 @@ const App = () => {
                         }}
                       >
                         <IconButton
-                          icon="trash"
+                          icon="delete"
                           size={24}
                           iconColor="#FFFFFF"
                         />
