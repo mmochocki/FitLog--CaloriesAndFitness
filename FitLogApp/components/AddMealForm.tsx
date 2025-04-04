@@ -136,10 +136,8 @@ export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit,
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ width: '100%', alignItems: 'center' }}
         >
-          <ScrollView 
-            keyboardShouldPersistTaps="always"
-            contentContainerStyle={{ flexGrow: 1, alignItems: 'center' }}
-            style={{ width: '100%' }}
+          <View
+            style={{ width: '100%', alignItems: 'center' }}
           >
             <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
@@ -172,7 +170,8 @@ export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit,
                 {suggestions.length > 0 && (
                   <View style={[styles.suggestionsContainer, { 
                     backgroundColor: colors.card,
-                    borderColor: themeMode === 'dark' ? '#FFFFFF' : colors.border
+                    borderColor: themeMode === 'dark' ? '#FFFFFF' : colors.border,
+                    maxHeight: 200 // Ograniczenie maksymalnej wysokości listy sugestii
                   }]}>
                     <Text style={[styles.suggestionsTitle, { color: themeMode === 'dark' ? '#E0E0E0' : colors.textSecondary }]}>Propozycje z historii:</Text>
                     <FlatList
@@ -194,7 +193,6 @@ export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit,
                         </TouchableOpacity>
                       )}
                       style={styles.suggestionsList}
-                      nestedScrollEnabled
                       showsVerticalScrollIndicator={false}
                     />
                   </View>
@@ -245,7 +243,7 @@ export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit,
                 </Button>
               </View>
             </View>
-          </ScrollView>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </Portal>
