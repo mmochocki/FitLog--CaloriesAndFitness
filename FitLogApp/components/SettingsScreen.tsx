@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
 import { TextInput, Button, Text, Card, Divider, Switch, List } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { UserData } from '../types';
+import { UserData, ThemeMode } from '../types';
+import { LIGHT_COLORS, DARK_COLORS, getColors } from '../styles/theme';
 
 type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
 
@@ -17,23 +18,27 @@ const activityLevels: Record<ActivityLevel, string> = {
 interface SettingsScreenProps {
   onUserDataUpdate: (data: UserData) => void;
   onBack: () => void;
+  themeMode?: ThemeMode;
 }
 
-export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScreenProps) {
+export default function SettingsScreen({ onUserDataUpdate, onBack, themeMode = 'light' }: SettingsScreenProps) {
   const [userData, setUserData] = useState<UserData>({
-    weight: 0,
-    height: 0,
-    dailyCalories: 2000,
+    weight: 70,
+    height: 175,
     age: 30,
     gender: 'male',
     activityLevel: 'moderate',
+    dailyCalories: 2000,
     manualCalories: false,
+    darkMode: false,
   });
   const [bmi, setBmi] = useState<number | null>(null);
   const [bmiCategory, setBmiCategory] = useState<string>('');
   const [calculatedCalories, setCalculatedCalories] = useState<number>(0);
   const [expanded, setExpanded] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+
+  const colors = getColors(themeMode);
 
   useEffect(() => {
     loadUserData();
@@ -124,15 +129,15 @@ export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScr
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <ScrollView 
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
       >
         <List.Accordion
           title="Twoje dane"
-          titleStyle={styles.title}
-          style={styles.accordion}
+          titleStyle={[styles.title, { color: colors.text }]}
+          style={[styles.accordion, { backgroundColor: colors.card }]}
           expanded={expanded}
           onPress={() => setExpanded(!expanded)}
         >
@@ -142,10 +147,11 @@ export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScr
               value={userData.weight.toString()}
               onChangeText={(text) => setUserData({ ...userData, weight: Number(text) || 0 })}
               keyboardType="numeric"
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.card }]}
               mode="outlined"
-              outlineColor="#E0E0E0"
-              activeOutlineColor="#4CAF50"
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              textColor={colors.text}
             />
 
             <TextInput
@@ -153,10 +159,11 @@ export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScr
               value={userData.height.toString()}
               onChangeText={(text) => setUserData({ ...userData, height: Number(text) || 0 })}
               keyboardType="numeric"
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.card }]}
               mode="outlined"
-              outlineColor="#E0E0E0"
-              activeOutlineColor="#4CAF50"
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              textColor={colors.text}
             />
 
             <TextInput
@@ -164,67 +171,71 @@ export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScr
               value={userData.age.toString()}
               onChangeText={(text) => setUserData({ ...userData, age: Number(text) || 0 })}
               keyboardType="numeric"
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.card }]}
               mode="outlined"
-              outlineColor="#E0E0E0"
-              activeOutlineColor="#4CAF50"
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              textColor={colors.text}
             />
 
-            <Text style={styles.sectionTitle}>Płeć</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Płeć</Text>
             <View style={styles.genderContainer}>
               <TouchableOpacity
                 style={[
                   styles.genderButton,
-                  userData.gender === 'male' && styles.genderButtonActive
+                  { borderColor: colors.border },
+                  userData.gender === 'male' && [styles.genderButtonActive, { backgroundColor: colors.primary }]
                 ]}
                 onPress={() => setUserData({ ...userData, gender: 'male' })}
               >
                 <Text style={[
                   styles.genderText,
-                  userData.gender === 'male' && styles.genderTextActive
+                  { color: userData.gender === 'male' ? '#FFFFFF' : colors.textSecondary }
                 ]}>Mężczyzna</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   styles.genderButton,
-                  userData.gender === 'female' && styles.genderButtonActive
+                  { borderColor: colors.border },
+                  userData.gender === 'female' && [styles.genderButtonActive, { backgroundColor: colors.primary }]
                 ]}
                 onPress={() => setUserData({ ...userData, gender: 'female' })}
               >
                 <Text style={[
                   styles.genderText,
-                  userData.gender === 'female' && styles.genderTextActive
+                  { color: userData.gender === 'female' ? '#FFFFFF' : colors.textSecondary }
                 ]}>Kobieta</Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.sectionTitle}>Poziom aktywności</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Poziom aktywności</Text>
             <View style={styles.activityContainer}>
               {Object.entries(activityLevels).map(([key, label]) => (
                 <TouchableOpacity
                   key={key}
                   style={[
                     styles.activityButton,
-                    userData.activityLevel === key && styles.activityButtonActive
+                    { borderColor: colors.border },
+                    userData.activityLevel === key && [styles.activityButtonActive, { backgroundColor: colors.primary }]
                   ]}
                   onPress={() => setUserData({ ...userData, activityLevel: key as ActivityLevel })}
                 >
                   <Text style={[
                     styles.activityText,
-                    userData.activityLevel === key && styles.activityTextActive
+                    { color: userData.activityLevel === key ? '#FFFFFF' : colors.textSecondary }
                   ]}>{label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
             <View style={styles.manualCaloriesContainer}>
-              <Text style={styles.sectionTitle}>Dzienne zapotrzebowanie kaloryczne</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Dzienne zapotrzebowanie kaloryczne</Text>
               <View style={styles.manualCaloriesToggle}>
-                <Text style={styles.manualCaloriesLabel}>Ręczne ustawienie</Text>
+                <Text style={[styles.manualCaloriesLabel, { color: colors.text }]}>Ręczne ustawienie</Text>
                 <Switch
                   value={userData.manualCalories}
                   onValueChange={(value) => setUserData({ ...userData, manualCalories: value })}
-                  color="#4CAF50"
+                  color={colors.primary}
                 />
               </View>
               {userData.manualCalories && (
@@ -233,10 +244,11 @@ export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScr
                   value={userData.dailyCalories.toString()}
                   onChangeText={(text) => setUserData({ ...userData, dailyCalories: Number(text) || 0 })}
                   keyboardType="numeric"
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: colors.card }]}
                   mode="outlined"
-                  outlineColor="#E0E0E0"
-                  activeOutlineColor="#4CAF50"
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.text}
                 />
               )}
             </View>
@@ -245,12 +257,12 @@ export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScr
 
         <View style={styles.sectionSpacer} />
 
-        <Card style={styles.card}>
+        <Card style={[styles.card, { backgroundColor: colors.card }]}>
           <Card.Content>
             <View style={styles.manualCaloriesContainer}>
-              <Text style={styles.sectionTitle}>Ręczne ustawienie kalorii</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Ręczne ustawienie kalorii</Text>
               <View style={styles.switchContainer}>
-                <Text>Włącz ręczne ustawienie</Text>
+                <Text style={{ color: colors.text }}>Włącz ręczne ustawienie</Text>
                 <Switch
                   value={userData.manualCalories}
                   onValueChange={(value) => {
@@ -261,6 +273,7 @@ export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScr
                       setUserData(prev => ({ ...prev, dailyCalories: newCalories }));
                     }
                   }}
+                  color={colors.primary}
                 />
               </View>
             </View>
@@ -271,36 +284,44 @@ export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScr
                 value={userData.dailyCalories.toString()}
                 onChangeText={(text) => setUserData({ ...userData, dailyCalories: Number(text) || 0 })}
                 keyboardType="numeric"
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.card }]}
                 mode="outlined"
+                outlineColor={colors.border}
+                activeOutlineColor={colors.primary}
+                textColor={colors.text}
               />
             ) : (
               <View style={styles.resultContainer}>
-                <Text style={styles.resultTitle}>Dzienne zapotrzebowanie kaloryczne</Text>
-                <Text style={styles.resultValue}>{calculatedCalories} kcal</Text>
+                <Text style={[styles.resultTitle, { color: colors.textSecondary }]}>Dzienne zapotrzebowanie kaloryczne</Text>
+                <Text style={[styles.resultValue, { color: colors.primary }]}>{calculatedCalories} kcal</Text>
               </View>
             )}
 
-            <Divider style={styles.divider} />
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
 
             {bmi !== null && (
               <View style={styles.resultContainer}>
-                <Text style={styles.resultTitle}>Twoje BMI</Text>
-                <Text style={styles.resultValue}>{bmi.toFixed(1)}</Text>
-                <Text style={styles.resultCategory}>{bmiCategory}</Text>
+                <Text style={[styles.resultTitle, { color: colors.textSecondary }]}>Twoje BMI</Text>
+                <Text style={[styles.resultValue, { color: colors.primary }]}>{bmi.toFixed(1)}</Text>
+                <Text style={[styles.resultCategory, { color: colors.textSecondary }]}>{bmiCategory}</Text>
               </View>
             )}
           </Card.Content>
         </Card>
 
-        <Button
-          mode="contained"
-          onPress={saveUserData}
-          style={[styles.saveButton, isSaved && styles.savedButton]}
-          icon={isSaved ? "check" : undefined}
-        >
-          {isSaved ? "Zapisano" : "Zapisz ustawienia"}
-        </Button>
+        <View style={styles.sectionSpacer} />
+
+        <View style={styles.buttonContainer}>
+          <Button
+            mode="contained"
+            onPress={saveUserData}
+            style={[styles.button, { backgroundColor: isSaved ? colors.textSecondary : (themeMode === 'dark' ? colors.buttonPrimary : colors.primary) }]}
+            icon={isSaved ? "check" : undefined}
+            textColor="#FFFFFF"
+          >
+            {isSaved ? "Zapisano" : "Zapisz ustawienia"}
+          </Button>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -454,5 +475,57 @@ const styles = StyleSheet.create({
   },
   sectionSpacer: {
     height: 24,
+  },
+  themeContainer: {
+    marginBottom: 20,
+  },
+  themeToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  themeLabel: {
+    fontSize: 16,
+    color: '#333',
+  },
+  themePreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  themePreviewBox: {
+    width: '48%',
+    height: 100,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  lightThemeBox: {
+    backgroundColor: LIGHT_COLORS.card,
+    borderWidth: 1,
+    borderColor: LIGHT_COLORS.border,
+  },
+  darkThemeBox: {
+    backgroundColor: DARK_COLORS.card,
+    borderWidth: 1,
+    borderColor: DARK_COLORS.border,
+  },
+  themePreviewText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: LIGHT_COLORS.text,
+  },
+  darkThemeText: {
+    color: DARK_COLORS.text,
+  },
+  buttonContainer: {
+    marginTop: 24,
+    paddingHorizontal: 16,
+  },
+  button: {
+    borderRadius: 8,
+    paddingVertical: 6,
   },
 }); 

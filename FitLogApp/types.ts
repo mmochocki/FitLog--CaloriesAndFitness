@@ -6,6 +6,7 @@ export interface UserData {
   gender: 'male' | 'female';
   activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
   manualCalories: boolean;
+  darkMode?: boolean;
 }
 
 export interface Meal {
@@ -13,4 +14,6 @@ export interface Meal {
   name: string;
   calories: number;
   date: string;
-} 
+}
+
+export type ThemeMode = 'light' | 'dark'; 

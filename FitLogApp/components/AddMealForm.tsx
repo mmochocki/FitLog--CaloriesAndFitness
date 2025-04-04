@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Modal, FlatList, TouchableOpacity } from 'react-native';
-import { TextInput, Button, Text, Chip, Searchbar, List, Portal } from 'react-native-paper';
+import { StyleSheet, View, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import { TextInput, Button, Text, Chip, Searchbar, List, Portal, Modal } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ThemeMode } from '../types';
+import { getColors } from '../styles/theme';
 
 interface Meal {
   id: string;
@@ -22,14 +24,17 @@ interface AddMealFormProps {
   onClose: () => void;
   onMealAdded: (meal: Meal) => void;
   mealToEdit?: Meal;
+  themeMode?: ThemeMode;
 }
 
-export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit }: AddMealFormProps) {
+export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit, themeMode = 'light' }: AddMealFormProps) {
   const [name, setName] = useState('');
   const [calories, setCalories] = useState('');
   const [error, setError] = useState('');
   const [suggestions, setSuggestions] = useState<Meal[]>([]);
   const [mealHistory, setMealHistory] = useState<Meal[]>([]);
+  
+  const colors = getColors(themeMode);
 
   useEffect(() => {
     if (mealToEdit) {
@@ -125,73 +130,106 @@ export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit 
       <Modal
         visible={visible}
         onDismiss={onClose}
-        style={styles.modal}
+        contentContainerStyle={styles.modalContainer}
       >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
+        <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>
             {mealToEdit ? 'Edytuj posiłek' : 'Dodaj nowy posiłek'}
           </Text>
           
-          <TextInput
-            label="Nazwa posiłku"
-            value={name}
-            onChangeText={handleMealNameChange}
-            style={styles.input}
-            mode="outlined"
-            error={!!error}
-            outlineColor="#E0E0E0"
-            activeOutlineColor="#4CAF50"
-          />
-          
-          {suggestions.length > 0 && (
-            <View style={styles.suggestionsContainer}>
-              <Text style={styles.suggestionsTitle}>Propozycje z historii:</Text>
-              {suggestions.map((meal) => (
-                <TouchableOpacity
-                  key={meal.id}
-                  onPress={() => handleSuggestionSelect(meal)}
-                  style={styles.suggestionItem}
-                >
-                  <View style={styles.suggestionContent}>
-                    <Text style={styles.suggestionName}>{meal.name}</Text>
-                    <View style={styles.suggestionCalories}>
-                      <Text style={styles.caloriesText}>{meal.calories}</Text>
-                      <Text style={styles.caloriesUnit}>kcal</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-          
-          <TextInput
-            label="Kalorie"
-            value={calories}
-            onChangeText={setCalories}
-            keyboardType="numeric"
-            style={styles.input}
-            mode="outlined"
-            error={!!error}
-            outlineColor="#E0E0E0"
-            activeOutlineColor="#4CAF50"
-          />
-          
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          <View style={styles.formContainer}>
+            <TextInput
+              label="Nazwa posiłku"
+              value={name}
+              onChangeText={handleMealNameChange}
+              style={styles.input}
+              mode="outlined"
+              error={!!error}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              textColor={colors.text}
+              theme={{ 
+                colors: { 
+                  background: colors.card, 
+                  placeholder: colors.textSecondary, 
+                  onSurfaceVariant: colors.textSecondary,
+                  surface: colors.card,
+                  surfaceVariant: colors.card,
+                  primary: colors.primary
+                } 
+              }}
+            />
+            
+            {suggestions.length > 0 && (
+              <View style={[styles.suggestionsContainer, { 
+                backgroundColor: colors.card,
+                borderColor: themeMode === 'dark' ? '#FFFFFF' : colors.border
+              }]}>
+                <Text style={[styles.suggestionsTitle, { color: themeMode === 'dark' ? '#E0E0E0' : colors.textSecondary }]}>Propozycje z historii:</Text>
+                <FlatList
+                  data={suggestions}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      onPress={() => handleSuggestionSelect(item)}
+                      style={[styles.suggestionItem, { borderBottomColor: themeMode === 'dark' ? 'rgba(255, 255, 255, 0.15)' : colors.border }]}
+                    >
+                      <View style={styles.suggestionContent}>
+                        <Text style={[styles.suggestionName, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
+                        <View style={[styles.suggestionCalories, { backgroundColor: themeMode === 'dark' ? colors.primaryDark : colors.primaryLight }]}>
+                          <Text style={[styles.caloriesText, { color: themeMode === 'dark' ? '#FFFFFF' : '#4CAF50' }]}>{item.calories}</Text>
+                          <Text style={[styles.caloriesUnit, { color: themeMode === 'dark' ? '#FFFFFF' : '#666' }]}>kcal</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  style={styles.suggestionsList}
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={false}
+                />
+              </View>
+            )}
+            
+            <TextInput
+              label="Kalorie"
+              value={calories}
+              onChangeText={setCalories}
+              keyboardType="numeric"
+              style={styles.input}
+              mode="outlined"
+              error={!!error}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              textColor={colors.text}
+              theme={{ 
+                colors: { 
+                  background: colors.card, 
+                  placeholder: colors.textSecondary, 
+                  onSurfaceVariant: colors.textSecondary,
+                  surface: colors.card,
+                  surfaceVariant: colors.card,
+                  primary: colors.primary
+                } 
+              }}
+            />
+            
+            {error ? <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
+          </View>
           
           <View style={styles.buttonContainer}>
             <Button
               mode="outlined"
               onPress={onClose}
-              style={[styles.button, styles.cancelButton]}
-              textColor="#666"
+              style={[styles.button, styles.cancelButton, { borderColor: colors.border }]}
+              textColor={colors.textSecondary}
             >
               Anuluj
             </Button>
             <Button
               mode="contained"
               onPress={handleSubmit}
-              style={[styles.button, styles.submitButton]}
-              buttonColor="#4CAF50"
+              style={[styles.button, styles.submitButton, { backgroundColor: themeMode === 'dark' ? colors.buttonPrimary : colors.primary }]}
+              textColor="#FFFFFF"
             >
               {mealToEdit ? 'Zapisz zmiany' : 'Dodaj posiłek'}
             </Button>
@@ -203,73 +241,70 @@ export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit 
 }
 
 const styles = StyleSheet.create({
-  modal: {
-    flex: 1,
+  modalContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 16,
+    margin: 0,
   },
   modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 20,
+    padding: 16,
     width: '90%',
-    maxWidth: 400,
-    margin: 20,
-    elevation: 4,
+    maxWidth: 450,
+    elevation: 5,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 3,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.27,
+    shadowRadius: 4.65,
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 24,
+    marginBottom: 16,
     textAlign: 'center',
-    color: '#333',
+  },
+  formContainer: {
+    width: '100%',
   },
   input: {
-    marginBottom: 20,
-    backgroundColor: 'white',
+    marginBottom: 12,
+    fontSize: 16,
+    height: 50,
+    width: '100%',
   },
   errorText: {
     color: '#FF4444',
-    marginBottom: 16,
+    marginBottom: 12,
     textAlign: 'center',
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 24,
+    marginTop: 16,
   },
   button: {
     flex: 1,
-    marginHorizontal: 8,
-    borderRadius: 8,
+    marginHorizontal: 6,
+    borderRadius: 10,
+    paddingVertical: 5,
   },
   cancelButton: {
-    borderColor: '#E0E0E0',
+    borderWidth: 1,
   },
   submitButton: {
     elevation: 2,
   },
   suggestionsContainer: {
-    position: 'absolute',
-    top: 100,
-    left: 20,
-    right: 20,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    elevation: 4,
+    borderRadius: 10,
+    elevation: 3,
     zIndex: 1,
-    maxHeight: 300,
-    padding: 8,
+    maxHeight: 150,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    marginVertical: 10,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -279,15 +314,15 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   suggestionsTitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
+    fontSize: 13,
+    marginTop: 8,
+    marginBottom: 4,
     paddingHorizontal: 8,
+    fontWeight: '500',
   },
   suggestionItem: {
-    padding: 12,
+    padding: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
   },
   suggestionContent: {
     flexDirection: 'row',
@@ -295,26 +330,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   suggestionName: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 15,
     flex: 1,
   },
   suggestionCalories: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   caloriesText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
-    color: '#4CAF50',
-    marginRight: 4,
+    marginRight: 3,
   },
   caloriesUnit: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: 11,
+  },
+  suggestionsList: {
+    maxHeight: 120,
   },
 }); 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, ScrollView, SafeAreaView, Animated, Easing, TouchableOpacity, Modal, Platform, Alert } from 'react-native';
+import { StyleSheet, View, ScrollView, SafeAreaView, Animated, Easing, TouchableOpacity, Modal, Platform, Alert, useColorScheme } from 'react-native';
 import { Text, Card, ProgressBar as RNProgressBar, Button, Provider as PaperProvider, FAB, List, IconButton, Portal, TextInput, Dialog } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AddMealForm from './components/AddMealForm';
@@ -8,7 +8,8 @@ import { Calendar } from 'react-native-calendars';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { calculateCalories, calculateMacros } from './utils/calculations';
-import { Meal, UserData } from './types';
+import { Meal, UserData, ThemeMode } from './types';
+import { getTheme, getColors, LIGHT_COLORS, DARK_COLORS } from './styles/theme';
 
 interface DailyMeals {
   date: string;
@@ -19,15 +20,17 @@ interface DailyMeals {
 const PRIMARY_COLOR = '#4CAF50';
 const LIGHTER_PRIMARY_COLOR = '#66BB6A';
 
-const AnimatedProgressBar = ({ progress, color, style }: { progress: Animated.Value, color: string, style?: any }) => {
+const AnimatedProgressBar = ({ progress, color, style, themeMode }: { progress: Animated.Value, color: string, style?: any, themeMode: ThemeMode }) => {
+  const colors = getColors(themeMode);
+  
   const backgroundColor = progress.interpolate({
     inputRange: [0, 1, 1.35],
-    outputRange: ['#E0E0E0', '#E0E0E0', '#FFE0B2']
+    outputRange: [themeMode === 'dark' ? '#333333' : colors.border, themeMode === 'dark' ? '#333333' : colors.border, colors.warning]
   });
 
   const fillColor = progress.interpolate({
     inputRange: [0, 1, 1.35],
-    outputRange: ['#4CAF50', '#4CAF50', '#FF4444']
+    outputRange: [colors.primary, colors.primary, colors.danger]
   });
 
   return (
@@ -69,6 +72,8 @@ const App = () => {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const deviceTheme = useColorScheme();
+  const [themeMode, setThemeMode] = useState<ThemeMode>('light');
 
   useEffect(() => {
     loadUserData();
@@ -84,7 +89,12 @@ const App = () => {
     try {
       const data = await AsyncStorage.getItem('userData');
       if (data) {
-        setUserData(JSON.parse(data));
+        const parsedData = JSON.parse(data);
+        setUserData(parsedData);
+        // Ustaw tryb ciemny jeśli jest zapisany w danych użytkownika
+        if (parsedData.darkMode !== undefined) {
+          setThemeMode(parsedData.darkMode ? 'dark' : 'light');
+        }
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -95,6 +105,11 @@ const App = () => {
     try {
       await AsyncStorage.setItem('userData', JSON.stringify(newData));
       setUserData(newData);
+      // Zaktualizuj tryb ciemny jeśli się zmienił
+      if (newData.darkMode !== undefined) {
+        setThemeMode(newData.darkMode ? 'dark' : 'light');
+      }
+      
       // Odśwież currentCalories po zmianie danych użytkownika
       const today = new Date().toISOString().split('T')[0];
       const todayMeals = meals.filter((meal: Meal) => 
@@ -429,15 +444,16 @@ const App = () => {
         transparent={true}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
             <View style={styles.calendarHeader}>
-              <Text style={styles.calendarTitle}>
+              <Text style={[styles.calendarTitle, { color: colors.text }]}>
                 {formatDate(selectedDate)}
               </Text>
               <IconButton
                 icon="close"
                 size={24}
                 onPress={() => setShowCalendarModal(false)}
+                iconColor={colors.textSecondary}
               />
             </View>
             <Calendar
@@ -463,18 +479,18 @@ const App = () => {
                 }
               }}
               theme={{
-                calendarBackground: '#ffffff',
-                textSectionTitleColor: '#b6c1cd',
-                selectedDayBackgroundColor: '#4CAF50',
+                calendarBackground: colors.card,
+                textSectionTitleColor: colors.textSecondary,
+                selectedDayBackgroundColor: colors.primary,
                 selectedDayTextColor: '#ffffff',
-                todayTextColor: '#4CAF50',
-                dayTextColor: '#2d4150',
-                textDisabledColor: '#d9e1e8',
-                dotColor: '#4CAF50',
+                todayTextColor: colors.primary,
+                dayTextColor: colors.text,
+                textDisabledColor: themeMode === 'dark' ? '#666666' : '#d9e1e8',
+                dotColor: colors.primary,
                 selectedDotColor: '#ffffff',
-                arrowColor: '#4CAF50',
-                monthTextColor: '#4CAF50',
-                indicatorColor: '#4CAF50',
+                arrowColor: colors.primary,
+                monthTextColor: colors.primary,
+                indicatorColor: colors.primary,
                 textDayFontFamily: 'monospace',
                 textMonthFontFamily: 'monospace',
                 textDayHeaderFontFamily: 'monospace',
@@ -495,8 +511,25 @@ const App = () => {
                     justifyContent: 'center',
                     borderRadius: 16,
                   },
+                },
+                'stylesheet.day.basic': {
+                  today: {
+                    backgroundColor: themeMode === 'dark' ? 'rgba(129, 199, 132, 0.2)' : 'rgba(76, 175, 80, 0.1)',
+                    borderRadius: 16
+                  },
+                  todayText: {
+                    fontWeight: 'bold',
+                  },
+                  selected: {
+                    backgroundColor: colors.primary,
+                    borderRadius: 16
+                  },
+                  selectedText: {
+                    color: '#ffffff'
+                  }
                 }
               }}
+              firstDay={1}
             />
           </View>
         </View>
@@ -601,10 +634,14 @@ const App = () => {
     }
   };
 
+  // Pobierz kolory dla aktualnego motywu
+  const colors = getColors(themeMode);
+  const theme = getTheme(themeMode);
+
   if (isSettingsVisible) {
     return (
-      <PaperProvider>
-        <SafeAreaView style={styles.safeArea}>
+      <PaperProvider theme={theme}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
           <SettingsScreen 
             onUserDataUpdate={updateUserData} 
             onBack={async () => {
@@ -613,19 +650,21 @@ const App = () => {
               }
               setIsSettingsVisible(false);
             }}
+            themeMode={themeMode}
           />
           <View style={styles.settingsButtons}>
             <Button
               mode="contained"
               onPress={clearMealHistory}
-              style={[styles.button, { backgroundColor: '#FF4444' }]}
+              style={[styles.button, { backgroundColor: themeMode === 'dark' ? colors.buttonDanger : colors.danger }]}
+              textColor="#FFFFFF"
             >
               Wyczyść historię posiłków
             </Button>
           </View>
           <Animated.View style={[styles.fabContainer, { transform: [{ rotate: spinAnimation }] }]}>
             <FAB
-              style={[styles.fab, { backgroundColor: LIGHTER_PRIMARY_COLOR }]}
+              style={[styles.fab, { backgroundColor: colors.accent }]}
               icon="arrow-left"
               onPress={async () => {
                 spin();
@@ -637,6 +676,24 @@ const App = () => {
               color="#FFFFFF"
             />
           </Animated.View>
+          <View style={styles.themeToggleFabContainer}>
+            <FAB
+              style={[styles.fab, { backgroundColor: themeMode === 'dark' ? '#FFD54F' : '#333333' }]}
+              icon={themeMode === 'dark' ? 'white-balance-sunny' : 'moon-waning-crescent'}
+              onPress={async () => {
+                const newThemeMode = themeMode === 'dark' ? 'light' : 'dark';
+                setThemeMode(newThemeMode);
+                if (userData) {
+                  const updatedData = {
+                    ...userData,
+                    darkMode: newThemeMode === 'dark'
+                  };
+                  await updateUserData(updatedData);
+                }
+              }}
+              color={themeMode === 'dark' ? '#333333' : '#FFFFFF'}
+            />
+          </View>
         </SafeAreaView>
       </PaperProvider>
     );
@@ -644,21 +701,21 @@ const App = () => {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <PaperProvider>
-        <SafeAreaView style={styles.safeArea}>
+      <PaperProvider theme={theme}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
           <ScrollView 
             style={styles.container}
             contentContainerStyle={styles.contentContainer}
           >
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: colors.card }]}>
               <Card.Content>
-                <Text style={styles.title}>Spożycie kalorii</Text>
+                <Text style={[styles.title, { color: colors.text }]}>Spożycie kalorii</Text>
                 <View style={styles.caloriesContainer}>
                   <View style={styles.caloriesTextContainer}>
-                    <Text style={styles.currentCalories}>{getSelectedDayCalories()}</Text>
-                    <Text style={styles.caloriesSeparator}>/</Text>
-                    <Text style={styles.dailyCalories}>{userData?.dailyCalories || 2000}</Text>
-                    <Text style={styles.caloriesUnit}>kcal</Text>
+                    <Text style={[styles.currentCalories, { color: colors.text }]}>{getSelectedDayCalories()}</Text>
+                    <Text style={[styles.caloriesSeparator, { color: colors.textSecondary }]}>/</Text>
+                    <Text style={[styles.dailyCalories, { color: colors.textSecondary }]}>{userData?.dailyCalories || 2000}</Text>
+                    <Text style={[styles.caloriesUnit, { color: colors.textSecondary }]}>kcal</Text>
                   </View>
                   <View style={styles.progressContainer}>
                     <View style={styles.progressBarBackground}>
@@ -669,17 +726,27 @@ const App = () => {
                           const percentage = (getSelectedDayCalories() / dailyLimit) * 100;
                           
                           if (percentage > 135) {
-                            return '#FF4444'; // Czerwony - przekroczenie o więcej niż 35%
+                            return colors.danger;
                           } else if (percentage > 100) {
-                            return '#FFE0B2'; // Pomarańczowy - przekroczenie o 0-35%
+                            return colors.warning;
                           }
-                          return '#4CAF50'; // Zielony - w normie
+                          return colors.primary;
                         })()}
                         style={styles.progressBar}
+                        themeMode={themeMode}
                       />
                     </View>
                     <View style={styles.progressLabelContainer}>
-                      <Text style={[styles.progressLabel, getSelectedDayCalories() > (userData?.dailyCalories || 2000) && styles.overLimitText]}>
+                      <Text style={[
+                        styles.progressLabel, 
+                        getSelectedDayCalories() > (userData?.dailyCalories || 2000) && styles.overLimitText,
+                        { 
+                          color: '#FFFFFF',
+                          textShadowColor: 'rgba(0, 0, 0, 0.5)',
+                          textShadowOffset: { width: 1, height: 1 },
+                          textShadowRadius: 2
+                        }
+                      ]}>
                         {Math.round((getSelectedDayCalories() / (userData?.dailyCalories || 2000)) * 100)}%
                       </Text>
                     </View>
@@ -688,38 +755,45 @@ const App = () => {
               </Card.Content>
             </Card>
 
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: colors.card }]}>
               <List.Accordion
                 title="Twoje dane"
-                titleStyle={styles.title}
-                style={styles.accordion}
+                titleStyle={[styles.title, { color: colors.text }]}
+                style={[styles.accordion, { backgroundColor: colors.card }]}
               >
                 <List.Item
                   title="Waga"
                   description={`${userData?.weight || 0} kg`}
                   left={props => <List.Icon {...props} icon="scale" />}
+                  titleStyle={{ color: colors.text }}
+                  descriptionStyle={{ color: colors.textSecondary }}
                 />
                 <List.Item
                   title="Wzrost"
                   description={`${userData?.height || 0} cm`}
                   left={props => <List.Icon {...props} icon="human-male-height" />}
+                  titleStyle={{ color: colors.text }}
+                  descriptionStyle={{ color: colors.textSecondary }}
                 />
                 <List.Item
                   title="Dzienne zapotrzebowanie"
                   description={`${userData?.dailyCalories || 0} kcal`}
                   left={props => <List.Icon {...props} icon="food" />}
+                  titleStyle={{ color: colors.text }}
+                  descriptionStyle={{ color: colors.textSecondary }}
                 />
               </List.Accordion>
             </Card>
 
-            <Card style={styles.card}>
+            <Card style={[styles.card, { backgroundColor: colors.card }]}>
               <Card.Content>
                 <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>{formatDayTitle(selectedDate)}</Text>
+                  <Text style={[styles.cardTitle, { color: colors.text }]}>{formatDayTitle(selectedDate)}</Text>
                   <IconButton
                     icon="calendar"
                     size={24}
                     onPress={() => setShowCalendarModal(true)}
+                    iconColor={colors.primary}
                   />
                 </View>
                 {meals.length > 0 ? (
@@ -730,21 +804,21 @@ const App = () => {
                         setSelectedMeal(meal);
                         setMenuVisible(true);
                       }}
-                      style={styles.mealItem}
+                      style={[styles.mealItem, { borderBottomColor: colors.border }]}
                     >
                       <View style={styles.mealInfo}>
-                        <Text style={styles.mealName}>{meal.name}</Text>
-                        <Text style={styles.mealCalories}>{meal.calories} kcal</Text>
+                        <Text style={[styles.mealName, { color: colors.text }]}>{meal.name}</Text>
+                        <Text style={[styles.mealCalories, { color: colors.textSecondary }]}>{meal.calories} kcal</Text>
                       </View>
                       <IconButton
                         icon="chevron-right"
                         size={24}
-                        iconColor="#666"
+                        iconColor={colors.textSecondary}
                       />
                     </TouchableOpacity>
                   ))
                 ) : (
-                  <Text>Brak posiłków na wybrany dzień</Text>
+                  <Text style={{ color: colors.textSecondary }}>Brak posiłków na wybrany dzień</Text>
                 )}
               </Card.Content>
             </Card>
@@ -752,7 +826,8 @@ const App = () => {
             <Button
               mode="contained"
               onPress={() => setIsAddMealModalVisible(true)}
-              style={[styles.button, { backgroundColor: PRIMARY_COLOR }]}
+              style={[styles.button, { backgroundColor: themeMode === 'dark' ? colors.buttonPrimary : colors.primary }]}
+              textColor="#FFFFFF"
             >
               Dodaj posiłek
             </Button>
@@ -761,6 +836,7 @@ const App = () => {
               visible={isAddMealModalVisible}
               onClose={() => setIsAddMealModalVisible(false)}
               onMealAdded={handleMealAdded}
+              themeMode={themeMode}
             />
 
             {editingMeal && (
@@ -769,6 +845,7 @@ const App = () => {
                 onClose={() => setEditingMeal(null)}
                 onMealAdded={handleMealUpdated}
                 mealToEdit={editingMeal}
+                themeMode={themeMode}
               />
             )}
 
@@ -780,11 +857,11 @@ const App = () => {
                 transparent={true}
               >
                 <View style={styles.modalOverlay}>
-                  <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>{selectedMeal?.name}</Text>
+                  <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+                    <Text style={[styles.modalTitle, { color: colors.text }]}>{selectedMeal?.name}</Text>
                     <View style={styles.modalActions}>
                       <TouchableOpacity
-                        style={[styles.modalAction, styles.editAction]}
+                        style={[styles.modalAction, styles.editAction, { backgroundColor: themeMode === 'dark' ? colors.buttonPrimary : colors.primary }]}
                         onPress={() => {
                           setMenuVisible(false);
                           setEditingMeal(selectedMeal);
@@ -798,7 +875,7 @@ const App = () => {
                         <Text style={[styles.modalActionText, styles.editActionText]}>Edytuj</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.modalAction, styles.deleteAction]}
+                        style={[styles.modalAction, styles.deleteAction, { backgroundColor: themeMode === 'dark' ? colors.buttonDanger : colors.danger }]}
                         onPress={() => {
                           setMenuVisible(false);
                           deleteMeal(selectedMeal?.id || '');
@@ -816,6 +893,7 @@ const App = () => {
                       mode="outlined"
                       onPress={() => setMenuVisible(false)}
                       style={styles.modalCloseButton}
+                      textColor={colors.text}
                     >
                       Zamknij
                     </Button>
@@ -836,7 +914,7 @@ const App = () => {
           {renderCalendarModal()}
           <Animated.View style={[styles.fabContainer, { transform: [{ rotate: spinAnimation }] }]}>
             <FAB
-              style={[styles.fab, { backgroundColor: LIGHTER_PRIMARY_COLOR }]}
+              style={[styles.fab, { backgroundColor: colors.accent }]}
               icon="cog"
               onPress={() => {
                 spin();
@@ -966,6 +1044,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     margin: 16,
   },
+  themeToggleFabContainer: {
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
+    margin: 16,
+  },
   fab: {
     elevation: 4,
     shadowColor: '#000',
@@ -991,7 +1075,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: 'white',
     borderRadius: 12,
     padding: 20,
     width: '90%',
