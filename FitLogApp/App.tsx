@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, ScrollView, SafeAreaView, Animated, Easing, TouchableOpacity, Modal, Platform } from 'react-native';
+import { StyleSheet, View, ScrollView, SafeAreaView, Animated, Easing, TouchableOpacity, Modal, Platform, Alert } from 'react-native';
 import { Text, Card, ProgressBar, Button, Provider as PaperProvider, FAB, List, IconButton, Portal, TextInput, Dialog } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AddMealForm from './components/AddMealForm';
 import SettingsScreen from './components/SettingsScreen';
 import { Calendar } from 'react-native-calendars';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { calculateCalories, calculateMacros } from './utils/calculations';
 import { Meal, UserData } from './types';
 
@@ -33,6 +33,7 @@ const App = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -129,12 +130,51 @@ const App = () => {
     }
   };
 
+  const getDayColor = (date: Date) => {
+    const dateString = date.toISOString().split('T')[0];
+    const dayData = dailyMealsHistory[dateString];
+    if (!dayData) return 'transparent'; // Brak tła dla dat bez posiłków
+
+    const dailyLimit = userData?.dailyCalories || 2000;
+    const percentage = (dayData.totalCalories / dailyLimit) * 100;
+    
+    if (percentage > 135) {
+      return '#FF4444'; // Ciemniejszy czerwony - przekroczenie o 35% lub więcej
+    } else if (percentage > 100) {
+      return '#FFE0B2'; // Pastelowy pomarańczowy - przekroczenie o 0-35%
+    }
+    return '#C8E6C9'; // Pastelowy zielony - w normie
+  };
+
+  const getDotColor = (date: Date) => {
+    const dateString = date.toISOString().split('T')[0];
+    const dayData = dailyMealsHistory[dateString];
+    if (!dayData) return '#4CAF50'; // Domyślny kolor dla dni bez danych
+
+    const dailyLimit = userData?.dailyCalories || 2000;
+    const percentage = (dayData.totalCalories / dailyLimit) * 100;
+    
+    if (percentage > 135) {
+      return '#FF4444'; // Ciemniejszy czerwony - przekroczenie o 35% lub więcej
+    } else if (percentage > 100) {
+      return '#FFE0B2'; // Pastelowy pomarańczowy - przekroczenie o 0-35%
+    }
+    return '#C8E6C9'; // Pastelowy zielony - w normie
+  };
+
   const getMarkedDates = () => {
-    const marked: { [key: string]: { marked: boolean; dotColor: string } } = {};
+    const marked: { [key: string]: { marked: boolean; dotColor: string; customStyles: { container: { backgroundColor: string; borderRadius: number } } } } = {};
     Object.entries(dailyMealsHistory).forEach(([date, day]) => {
+      const dateObj = new Date(date);
       marked[date] = {
-        marked: true,
-        dotColor: '#4CAF50'
+        marked: day.meals.length > 0,
+        dotColor: getDotColor(dateObj),
+        customStyles: {
+          container: {
+            backgroundColor: getDayColor(dateObj),
+            borderRadius: 20
+          }
+        }
       };
     });
     return marked;
@@ -142,6 +182,12 @@ const App = () => {
 
   const getSelectedDayMeals = () => {
     return dailyMealsHistory[selectedDate.toISOString().split('T')[0]];
+  };
+
+  const getSelectedDayCalories = () => {
+    const dateString = selectedDate.toISOString().split('T')[0];
+    const dayData = dailyMealsHistory[dateString];
+    return dayData ? dayData.totalCalories : 0;
   };
 
   const progressPercentage = userData ? currentCalories / userData.dailyCalories : 0;
@@ -163,12 +209,142 @@ const App = () => {
     outputRange: ['0deg', '360deg'],
   });
 
+  const loadCurrentDayData = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const history = await AsyncStorage.getItem('dailyMealsHistory');
+      if (history) {
+        const parsedHistory = JSON.parse(history);
+        const todayData = parsedHistory[today];
+        
+        if (todayData) {
+          setMeals(todayData.meals);
+          setCurrentCalories(todayData.totalCalories);
+        } else {
+          setMeals([]);
+          setCurrentCalories(0);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading current day data:', error);
+    }
+  };
+
+  const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (date) {
+      const dateString = date.toISOString().split('T')[0];
+      setSelectedDate(date);
+      loadSelectedDateData(dateString);
+    }
+  };
+
+  const loadSelectedDateData = async (date: string) => {
+    try {
+      const history = await AsyncStorage.getItem('dailyMealsHistory');
+      if (history) {
+        const parsedHistory = JSON.parse(history);
+        const selectedDayData = parsedHistory[date];
+        
+        if (selectedDayData) {
+          setMeals(selectedDayData.meals);
+          setCurrentCalories(selectedDayData.totalCalories);
+        } else {
+          // Jeśli nie ma danych dla wybranej daty, tworzymy nowy wpis
+          const newDayData = {
+            date: date,
+            meals: [],
+            totalCalories: 0
+          };
+          const updatedHistory = {
+            ...parsedHistory,
+            [date]: newDayData
+          };
+          setDailyMealsHistory(updatedHistory);
+          setMeals([]);
+          setCurrentCalories(0);
+          await AsyncStorage.setItem('dailyMealsHistory', JSON.stringify(updatedHistory));
+        }
+      } else {
+        // Jeśli nie ma historii, tworzymy nową
+        const newHistory = {
+          [date]: {
+            date: date,
+            meals: [],
+            totalCalories: 0
+          }
+        };
+        setDailyMealsHistory(newHistory);
+        setMeals([]);
+        setCurrentCalories(0);
+        await AsyncStorage.setItem('dailyMealsHistory', JSON.stringify(newHistory));
+      }
+    } catch (error) {
+      console.error('Error loading selected date data:', error);
+    }
+  };
+
+  const handleMealAdded = async (newMeal: Meal) => {
+    try {      
+      if (!newMeal || typeof newMeal.calories !== 'number') {
+        console.error('Nieprawidłowe dane posiłku:', newMeal);
+        return;
+      }
+
+      const dateString = selectedDate.toISOString().split('T')[0];
+      const currentDayData = dailyMealsHistory[dateString] || {
+        date: dateString,
+        meals: [],
+        totalCalories: 0
+      };
+
+      const updatedMeals = [...currentDayData.meals, newMeal];
+      const totalCalories = updatedMeals.reduce((sum, meal) => sum + meal.calories, 0);
+
+      const updatedDayData = {
+        ...currentDayData,
+        meals: updatedMeals,
+        totalCalories
+      };
+
+      const updatedHistory = {
+        ...dailyMealsHistory,
+        [dateString]: updatedDayData
+      };
+
+      setDailyMealsHistory(updatedHistory);
+      setMeals(updatedMeals);
+      setCurrentCalories(totalCalories);
+
+      await AsyncStorage.setItem('dailyMealsHistory', JSON.stringify(updatedHistory));
+    } catch (error) {
+      console.error('Błąd podczas dodawania posiłku:', error);
+    }
+  };
+
   const deleteMeal = async (mealId: string) => {
     try {
+      const dateString = selectedDate.toISOString().split('T')[0];
       const updatedMeals = meals.filter(meal => meal.id !== mealId);
-      await AsyncStorage.setItem('meals', JSON.stringify(updatedMeals));
+      const totalCalories = updatedMeals.reduce((sum, meal) => sum + meal.calories, 0);
+      
+      const updatedHistory = {
+        ...dailyMealsHistory,
+        [dateString]: {
+          date: dateString,
+          meals: updatedMeals,
+          totalCalories
+        }
+      };
+      
+      setDailyMealsHistory(updatedHistory);
       setMeals(updatedMeals);
-      loadMeals(); // Odśwież wyświetlanie kalorii
+      setCurrentCalories(totalCalories);
+      
+      await AsyncStorage.setItem('dailyMealsHistory', JSON.stringify(updatedHistory));
+      setMenuVisible(false);
     } catch (error) {
       console.error('Error deleting meal:', error);
     }
@@ -179,58 +355,127 @@ const App = () => {
     setEditingMeal(null);
   };
 
-  const loadCurrentDayData = async () => {
-    const today = new Date().toISOString().split('T')[0];
-    try {
-      const data = await AsyncStorage.getItem('meals');
-      if (data) {
-        const allMeals = JSON.parse(data);
-        const todayMeals = allMeals.filter((meal: Meal) => meal.date.startsWith(today));
-        setMeals(todayMeals);
-        const totalCalories = todayMeals.reduce((sum: number, meal: Meal) => sum + meal.calories, 0);
-        setCurrentCalories(totalCalories);
-      }
-    } catch (error) {
-      console.error('Error loading current day data:', error);
-    }
+  const renderCalendarModal = () => (
+    <Portal>
+      <Modal
+        visible={showCalendarModal}
+        onDismiss={() => setShowCalendarModal(false)}
+        style={styles.modal}
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.calendarHeader}>
+              <Text style={styles.calendarTitle}>
+                {formatDate(selectedDate)}
+              </Text>
+              <IconButton
+                icon="close"
+                size={24}
+                onPress={() => setShowCalendarModal(false)}
+              />
+            </View>
+            <Calendar
+              current={selectedDate.toISOString().split('T')[0]}
+              onDayPress={(day: { dateString: string }) => {
+                const newDate = new Date(day.dateString);
+                setSelectedDate(newDate);
+                loadSelectedDateData(day.dateString);
+                setShowCalendarModal(false);
+              }}
+              markedDates={{
+                ...getMarkedDates(),
+                [selectedDate.toISOString().split('T')[0]]: {
+                  selected: true,
+                  marked: dailyMealsHistory[selectedDate.toISOString().split('T')[0]]?.meals.length > 0,
+                  dotColor: getDotColor(selectedDate),
+                  customStyles: {
+                    container: {
+                      backgroundColor: getDayColor(selectedDate),
+                      borderRadius: 20
+                    }
+                  }
+                }
+              }}
+              theme={{
+                calendarBackground: '#ffffff',
+                textSectionTitleColor: '#b6c1cd',
+                selectedDayBackgroundColor: '#4CAF50',
+                selectedDayTextColor: '#ffffff',
+                todayTextColor: '#4CAF50',
+                dayTextColor: '#2d4150',
+                textDisabledColor: '#d9e1e8',
+                dotColor: '#4CAF50',
+                selectedDotColor: '#ffffff',
+                arrowColor: '#4CAF50',
+                monthTextColor: '#4CAF50',
+                indicatorColor: '#4CAF50',
+                textDayFontFamily: 'monospace',
+                textMonthFontFamily: 'monospace',
+                textDayHeaderFontFamily: 'monospace',
+                textDayFontSize: 16,
+                textMonthFontSize: 16,
+                textDayHeaderFontSize: 16,
+                'stylesheet.calendar.main': {
+                  dayContainer: {
+                    flex: 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 4,
+                  },
+                  day: {
+                    width: 32,
+                    height: 32,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 16,
+                  },
+                }
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+    </Portal>
+  );
+
+  const formatDate = (date: Date) => {
+    const months = [
+      'Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
+      'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'
+    ];
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
-  const handleDateChange = (event: any, date?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
+  const formatDayTitle = (date: Date) => {
+    const today = new Date();
+    if (date.toDateString() === today.toDateString()) {
+      return 'Dzisiejsze posiłki';
     }
-    if (date) {
-      const dateString = date.toISOString().split('T')[0];
-      setSelectedDate(date);
-      
-      // Jeśli wybrana data to dzisiejsza, wczytaj aktualne dane
-      if (dateString === new Date().toISOString().split('T')[0]) {
-        loadCurrentDayData();
-      } else {
-        // W przeciwnym razie wczytaj dane z historii
-        const mealsForDate = dailyMealsHistory[dateString]?.meals || [];
-        setMeals(mealsForDate);
-        const totalCalories = mealsForDate.reduce((sum, meal) => sum + meal.calories, 0);
-        setCurrentCalories(totalCalories);
-      }
-    }
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+    const year = date.getFullYear();
+    return `Posiłki z dnia ${day}.${month}.${year}`;
   };
 
-  const handleMealAdded = async (newMeal: Meal) => {
+  const clearMealHistory = async () => {
     try {
-      const updatedMeals = [...meals, newMeal];
-      await AsyncStorage.setItem('meals', JSON.stringify(updatedMeals));
-      setMeals(updatedMeals);
-      
-      // Aktualizuj kalorie tylko jeśli jesteśmy na dzisiejszej dacie
-      if (selectedDate.toDateString() === new Date().toDateString()) {
-        const totalCalories = updatedMeals.reduce((sum, meal) => sum + meal.calories, 0);
-        setCurrentCalories(totalCalories);
-      }
-      
-      setIsAddMealModalVisible(false);
+      await AsyncStorage.removeItem('dailyMealsHistory');
+      setDailyMealsHistory({});
+      setMeals([]);
+      setCurrentCalories(0);
+      Alert.alert(
+        'Sukces',
+        'Historia posiłków została wyczyszczona',
+        [{ text: 'OK' }]
+      );
     } catch (error) {
-      console.error('Error saving meal:', error);
+      console.error('Błąd podczas czyszczenia historii:', error);
+      Alert.alert(
+        'Błąd',
+        'Wystąpił błąd podczas czyszczenia historii',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -241,25 +486,30 @@ const App = () => {
           <SettingsScreen 
             onUserDataUpdate={updateUserData} 
             onBack={async () => {
-              // Najpierw zapisujemy ustawienia
               if (userData) {
                 await updateUserData(userData);
               }
-              // Następnie wracamy do strony głównej
               setIsSettingsVisible(false);
             }}
           />
+          <View style={styles.settingsButtons}>
+            <Button
+              mode="contained"
+              onPress={clearMealHistory}
+              style={[styles.button, { backgroundColor: '#FF4444' }]}
+            >
+              Wyczyść historię posiłków
+            </Button>
+          </View>
           <Animated.View style={[styles.fabContainer, { transform: [{ rotate: spinAnimation }] }]}>
             <FAB
               style={[styles.fab, { backgroundColor: LIGHTER_PRIMARY_COLOR }]}
               icon="arrow-left"
               onPress={async () => {
                 spin();
-                // Najpierw zapisujemy ustawienia
                 if (userData) {
                   await updateUserData(userData);
                 }
-                // Następnie wracamy do strony głównej
                 setIsSettingsVisible(false);
               }}
               color="#FFFFFF"
@@ -280,23 +530,23 @@ const App = () => {
           >
             <Card style={styles.card}>
               <Card.Content>
-                <Text style={styles.title}>Dzienne spożycie kalorii</Text>
+                <Text style={styles.title}>Spożycie kalorii</Text>
                 <View style={styles.caloriesContainer}>
                   <View style={styles.caloriesTextContainer}>
-                    <Text style={styles.currentCalories}>{currentCalories}</Text>
+                    <Text style={styles.currentCalories}>{getSelectedDayCalories()}</Text>
                     <Text style={styles.caloriesSeparator}>/</Text>
                     <Text style={styles.dailyCalories}>{userData?.dailyCalories || 2000}</Text>
                     <Text style={styles.caloriesUnit}>kcal</Text>
                   </View>
                   <View style={styles.progressContainer}>
                     <ProgressBar
-                      progress={progressPercentage}
-                      color={isOverLimit ? '#FF4444' : '#4CAF50'}
+                      progress={getSelectedDayCalories() / (userData?.dailyCalories || 2000)}
+                      color={getSelectedDayCalories() > (userData?.dailyCalories || 2000) ? '#FF4444' : '#4CAF50'}
                       style={styles.progressBar}
                     />
                     <View style={styles.progressLabelContainer}>
-                      <Text style={[styles.progressLabel, isOverLimit && styles.overLimitText]}>
-                        {Math.round(progressPercentage * 100)}%
+                      <Text style={[styles.progressLabel, getSelectedDayCalories() > (userData?.dailyCalories || 2000) && styles.overLimitText]}>
+                        {Math.round((getSelectedDayCalories() / (userData?.dailyCalories || 2000)) * 100)}%
                       </Text>
                     </View>
                   </View>
@@ -331,11 +581,11 @@ const App = () => {
             <Card style={styles.card}>
               <Card.Content>
                 <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>Dzisiejsze posiłki</Text>
+                  <Text style={styles.cardTitle}>{formatDayTitle(selectedDate)}</Text>
                   <IconButton
                     icon="calendar"
                     size={24}
-                    onPress={() => setShowDatePicker(true)}
+                    onPress={() => setShowCalendarModal(true)}
                   />
                 </View>
                 {meals.length > 0 ? (
@@ -360,7 +610,7 @@ const App = () => {
                     </TouchableOpacity>
                   ))
                 ) : (
-                  <Text>Brak posiłków na dziś</Text>
+                  <Text>Brak posiłków na wybrany dzień</Text>
                 )}
               </Card.Content>
             </Card>
@@ -449,6 +699,7 @@ const App = () => {
               />
             )}
           </ScrollView>
+          {renderCalendarModal()}
           <Animated.View style={[styles.fabContainer, { transform: [{ rotate: spinAnimation }] }]}>
             <FAB
               style={[styles.fab, { backgroundColor: LIGHTER_PRIMARY_COLOR }]}
@@ -609,9 +860,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 20,
-    width: '80%',
-    maxWidth: 300,
-    alignItems: 'center',
+    width: '90%',
+    maxWidth: 400,
+    elevation: 5,
   },
   modalTitle: {
     fontSize: 18,
@@ -694,6 +945,21 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
     color: '#4CAF50',
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  calendarTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  settingsButtons: {
+    padding: 16,
+    marginTop: 16,
   },
 });
 

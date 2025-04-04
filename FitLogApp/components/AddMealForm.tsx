@@ -20,7 +20,7 @@ interface ProductHistory {
 interface AddMealFormProps {
   visible: boolean;
   onClose: () => void;
-  onMealAdded: () => void;
+  onMealAdded: (meal: Meal) => void;
   mealToEdit?: Meal;
 }
 
@@ -103,7 +103,7 @@ export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit 
       }
 
       await AsyncStorage.setItem('meals', JSON.stringify(meals));
-      onMealAdded();
+      onMealAdded(newMeal);
       onClose();
     } catch (error) {
       console.error('Error saving meal:', error);
