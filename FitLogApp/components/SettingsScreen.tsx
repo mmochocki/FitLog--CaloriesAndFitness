@@ -1,30 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, ScrollView, SafeAreaView } from 'react-native';
+import { StyleSheet, View, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
 import { TextInput, Button, Text, Card, Divider, Switch, List } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { UserData } from '../types';
 
-interface UserData {
-  weight: number;
-  height: number;
-  dailyCalories: number;
-  age: number;
-  gender: 'male' | 'female';
-  activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
-  manualCalories: boolean;
-}
+type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+
+const activityLevels: Record<ActivityLevel, string> = {
+  sedentary: 'Siedzący tryb życia',
+  light: 'Lekka aktywność',
+  moderate: 'Umiarkowana aktywność',
+  active: 'Aktywny tryb życia',
+  very_active: 'Bardzo aktywny tryb życia'
+};
 
 interface SettingsScreenProps {
-  onUserDataUpdate: (data: UserData) => Promise<void>;
+  onUserDataUpdate: (data: UserData) => void;
   onBack: () => void;
 }
-
-const activityLevels = [
-  { value: 'sedentary', label: 'Siedzący tryb życia (brak aktywności)' },
-  { value: 'light', label: 'Lekka aktywność (1-3 razy w tygodniu)' },
-  { value: 'moderate', label: 'Umiarkowana aktywność (3-5 razy w tygodniu)' },
-  { value: 'active', label: 'Aktywny tryb życia (6-7 razy w tygodniu)' },
-  { value: 'very_active', label: 'Bardzo aktywny tryb życia (codziennie)' },
-];
 
 export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScreenProps) {
   const [userData, setUserData] = useState<UserData>({
@@ -151,6 +144,8 @@ export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScr
               keyboardType="numeric"
               style={styles.input}
               mode="outlined"
+              outlineColor="#E0E0E0"
+              activeOutlineColor="#4CAF50"
             />
 
             <TextInput
@@ -160,6 +155,8 @@ export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScr
               keyboardType="numeric"
               style={styles.input}
               mode="outlined"
+              outlineColor="#E0E0E0"
+              activeOutlineColor="#4CAF50"
             />
 
             <TextInput
@@ -169,39 +166,84 @@ export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScr
               keyboardType="numeric"
               style={styles.input}
               mode="outlined"
+              outlineColor="#E0E0E0"
+              activeOutlineColor="#4CAF50"
             />
 
             <Text style={styles.sectionTitle}>Płeć</Text>
             <View style={styles.genderContainer}>
-              <Button
-                mode={userData.gender === 'male' ? 'contained' : 'outlined'}
+              <TouchableOpacity
+                style={[
+                  styles.genderButton,
+                  userData.gender === 'male' && styles.genderButtonActive
+                ]}
                 onPress={() => setUserData({ ...userData, gender: 'male' })}
-                style={styles.genderButton}
               >
-                Mężczyzna
-              </Button>
-              <Button
-                mode={userData.gender === 'female' ? 'contained' : 'outlined'}
+                <Text style={[
+                  styles.genderText,
+                  userData.gender === 'male' && styles.genderTextActive
+                ]}>Mężczyzna</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.genderButton,
+                  userData.gender === 'female' && styles.genderButtonActive
+                ]}
                 onPress={() => setUserData({ ...userData, gender: 'female' })}
-                style={styles.genderButton}
               >
-                Kobieta
-              </Button>
+                <Text style={[
+                  styles.genderText,
+                  userData.gender === 'female' && styles.genderTextActive
+                ]}>Kobieta</Text>
+              </TouchableOpacity>
             </View>
 
             <Text style={styles.sectionTitle}>Poziom aktywności</Text>
-            {activityLevels.map((level) => (
-              <Button
-                key={level.value}
-                mode={userData.activityLevel === level.value ? 'contained' : 'outlined'}
-                onPress={() => setUserData({ ...userData, activityLevel: level.value as UserData['activityLevel'] })}
-                style={styles.activityButton}
-              >
-                {level.label}
-              </Button>
-            ))}
+            <View style={styles.activityContainer}>
+              {Object.entries(activityLevels).map(([key, label]) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.activityButton,
+                    userData.activityLevel === key && styles.activityButtonActive
+                  ]}
+                  onPress={() => setUserData({ ...userData, activityLevel: key as ActivityLevel })}
+                >
+                  <Text style={[
+                    styles.activityText,
+                    userData.activityLevel === key && styles.activityTextActive
+                  ]}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.manualCaloriesContainer}>
+              <Text style={styles.sectionTitle}>Dzienne zapotrzebowanie kaloryczne</Text>
+              <View style={styles.manualCaloriesToggle}>
+                <Text style={styles.manualCaloriesLabel}>Ręczne ustawienie</Text>
+                <Switch
+                  value={userData.manualCalories}
+                  onValueChange={(value) => setUserData({ ...userData, manualCalories: value })}
+                  color="#4CAF50"
+                />
+              </View>
+              {userData.manualCalories && (
+                <TextInput
+                  label="Dzienne zapotrzebowanie (kcal)"
+                  value={userData.dailyCalories.toString()}
+                  onChangeText={(text) => setUserData({ ...userData, dailyCalories: Number(text) || 0 })}
+                  keyboardType="numeric"
+                  style={styles.input}
+                  mode="outlined"
+                  outlineColor="#E0E0E0"
+                  activeOutlineColor="#4CAF50"
+                />
+              )}
+            </View>
           </View>
         </List.Accordion>
+
+        <View style={styles.sectionSpacer} />
 
         <Card style={styles.card}>
           <Card.Content>
@@ -276,6 +318,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
     justifyContent: 'center',
+    paddingVertical: 20,
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -283,31 +326,81 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
+    color: '#333',
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginTop: 16,
-    marginBottom: 8,
+    color: '#333',
+    marginBottom: 12,
+    marginTop: 8,
   },
   input: {
-    marginBottom: 8,
+    marginBottom: 20,
+    backgroundColor: 'white',
   },
   genderContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   genderButton: {
     flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
     marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  genderButtonActive: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
+  },
+  genderText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  genderTextActive: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  activityContainer: {
+    marginBottom: 20,
   },
   activityButton: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
     marginBottom: 8,
+  },
+  activityButtonActive: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
+  },
+  activityText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  activityTextActive: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  manualCaloriesContainer: {
+    marginBottom: 20,
+  },
+  manualCaloriesToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  manualCaloriesLabel: {
+    fontSize: 16,
+    color: '#333',
   },
   divider: {
     marginVertical: 16,
@@ -338,9 +431,6 @@ const styles = StyleSheet.create({
   savedButton: {
     backgroundColor: '#9E9E9E',
   },
-  manualCaloriesContainer: {
-    marginTop: 16,
-  },
   switchContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -348,9 +438,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   accordion: {
-    marginBottom: 16,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   accordionContent: {
     padding: 16,
+  },
+  sectionSpacer: {
+    height: 24,
   },
 }); 
