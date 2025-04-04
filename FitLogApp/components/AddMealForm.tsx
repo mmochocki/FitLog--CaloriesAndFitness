@@ -58,7 +58,17 @@ export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit 
   const handleMealNameChange = (text: string) => {
     setName(text);
     if (text.length > 0) {
-      const filtered = mealHistory.filter(meal => 
+      // Tworzymy mapę unikalnych kombinacji nazwy i kaloryczności
+      const uniqueMeals = new Map<string, Meal>();
+      mealHistory.forEach(meal => {
+        const key = `${meal.name.toLowerCase()}-${meal.calories}`;
+        if (!uniqueMeals.has(key)) {
+          uniqueMeals.set(key, meal);
+        }
+      });
+
+      // Filtrujemy unikalne posiłki po nazwie
+      const filtered = Array.from(uniqueMeals.values()).filter(meal => 
         meal.name.toLowerCase().includes(text.toLowerCase())
       );
       setSuggestions(filtered);

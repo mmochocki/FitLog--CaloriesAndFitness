@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, ScrollView, SafeAreaView, Animated, Easing, TouchableOpacity, Modal, Platform, Alert } from 'react-native';
-import { Text, Card, ProgressBar, Button, Provider as PaperProvider, FAB, List, IconButton, Portal, TextInput, Dialog } from 'react-native-paper';
+import { Text, Card, ProgressBar as RNProgressBar, Button, Provider as PaperProvider, FAB, List, IconButton, Portal, TextInput, Dialog } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AddMealForm from './components/AddMealForm';
 import SettingsScreen from './components/SettingsScreen';
@@ -19,13 +19,37 @@ interface DailyMeals {
 const PRIMARY_COLOR = '#4CAF50';
 const LIGHTER_PRIMARY_COLOR = '#66BB6A';
 
+const AnimatedProgressBar = ({ progress, color, style }: { progress: Animated.Value, color: string, style?: any }) => {
+  return (
+    <View style={[styles.progressBarContainer, style]}>
+      <View style={styles.progressBarBackground}>
+        <Animated.View 
+          style={[
+            styles.progressBarFill, 
+            { 
+              backgroundColor: color,
+              transform: [{ scaleX: progress }]
+            }
+          ]} 
+        />
+      </View>
+    </View>
+  );
+};
+
 const App = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [meals, setMeals] = useState<Meal[]>([]);
   const [currentCalories, setCurrentCalories] = useState(0);
+  const [currentProgress, setCurrentProgress] = useState(0);
   const [isAddMealModalVisible, setIsAddMealModalVisible] = useState(false);
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const spinValue = useRef(new Animated.Value(0)).current;
+  const progressAnimation = useRef(new Animated.Value(0)).current;
+  const progressInterpolation = progressAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1]
+  });
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -37,10 +61,11 @@ const App = () => {
 
   useEffect(() => {
     loadUserData();
-    loadMeals();
     loadDailyMealsHistory();
+    const today = new Date().toISOString().split('T')[0];
+    loadSelectedDateData(today);
     checkAndResetDailyMeals();
-    const interval = setInterval(checkAndResetDailyMeals, 60000); // Sprawdzaj co minutę
+    const interval = setInterval(checkAndResetDailyMeals, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -79,14 +104,6 @@ const App = () => {
       if (data) {
         const parsedMeals = JSON.parse(data);
         setMeals(parsedMeals);
-        const today = new Date().toISOString().split('T')[0];
-        const todayMeals = parsedMeals.filter((meal: Meal) => 
-          meal.date.startsWith(today)
-        );
-        const totalCalories = todayMeals.reduce((sum: number, meal: Meal) => 
-          sum + meal.calories, 0
-        );
-        setCurrentCalories(totalCalories);
       }
     } catch (error) {
       console.error('Error loading meals:', error);
@@ -241,58 +258,27 @@ const App = () => {
     }
   };
 
-  const loadSelectedDateData = async (date: string) => {
-    try {
-      const history = await AsyncStorage.getItem('dailyMealsHistory');
-      if (history) {
-        const parsedHistory = JSON.parse(history);
-        const selectedDayData = parsedHistory[date];
-        
-        if (selectedDayData) {
-          setMeals(selectedDayData.meals);
-          setCurrentCalories(selectedDayData.totalCalories);
-        } else {
-          // Jeśli nie ma danych dla wybranej daty, tworzymy nowy wpis
-          const newDayData = {
-            date: date,
-            meals: [],
-            totalCalories: 0
-          };
-          const updatedHistory = {
-            ...parsedHistory,
-            [date]: newDayData
-          };
-          setDailyMealsHistory(updatedHistory);
-          setMeals([]);
-          setCurrentCalories(0);
-          await AsyncStorage.setItem('dailyMealsHistory', JSON.stringify(updatedHistory));
-        }
-      } else {
-        // Jeśli nie ma historii, tworzymy nową
-        const newHistory = {
-          [date]: {
-            date: date,
-            meals: [],
-            totalCalories: 0
-          }
-        };
-        setDailyMealsHistory(newHistory);
-        setMeals([]);
-        setCurrentCalories(0);
-        await AsyncStorage.setItem('dailyMealsHistory', JSON.stringify(newHistory));
-      }
-    } catch (error) {
-      console.error('Error loading selected date data:', error);
-    }
+  const animateProgress = (newValue: number) => {
+    const dailyLimit = userData?.dailyCalories || 2000;
+    const targetProgress = newValue / dailyLimit;
+    
+    progressAnimation.setValue(0);
+    
+    Animated.sequence([
+      Animated.delay(500),
+      Animated.timing(progressAnimation, {
+        toValue: targetProgress,
+        duration: 1000,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true
+      })
+    ]).start(() => {
+      setCurrentProgress(targetProgress);
+    });
   };
 
   const handleMealAdded = async (newMeal: Meal) => {
-    try {      
-      if (!newMeal || typeof newMeal.calories !== 'number') {
-        console.error('Nieprawidłowe dane posiłku:', newMeal);
-        return;
-      }
-
+    try {
       const dateString = selectedDate.toISOString().split('T')[0];
       const currentDayData = dailyMealsHistory[dateString] || {
         date: dateString,
@@ -302,7 +288,7 @@ const App = () => {
 
       const updatedMeals = [...currentDayData.meals, newMeal];
       const totalCalories = updatedMeals.reduce((sum, meal) => sum + meal.calories, 0);
-
+      
       const updatedDayData = {
         ...currentDayData,
         meals: updatedMeals,
@@ -317,7 +303,22 @@ const App = () => {
       setDailyMealsHistory(updatedHistory);
       setMeals(updatedMeals);
       setCurrentCalories(totalCalories);
-
+      
+      const dailyLimit = userData?.dailyCalories || 2000;
+      const progress = totalCalories / dailyLimit;
+      
+      Animated.sequence([
+        Animated.delay(500),
+        Animated.timing(progressAnimation, {
+          toValue: progress,
+          duration: 1000,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true
+        })
+      ]).start(() => {
+        setCurrentProgress(progress);
+      });
+      
       await AsyncStorage.setItem('dailyMealsHistory', JSON.stringify(updatedHistory));
     } catch (error) {
       console.error('Błąd podczas dodawania posiłku:', error);
@@ -343,6 +344,21 @@ const App = () => {
       setMeals(updatedMeals);
       setCurrentCalories(totalCalories);
       
+      const dailyLimit = userData?.dailyCalories || 2000;
+      const progress = totalCalories / dailyLimit;
+      
+      Animated.sequence([
+        Animated.delay(500),
+        Animated.timing(progressAnimation, {
+          toValue: progress,
+          duration: 1000,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true
+        })
+      ]).start(() => {
+        setCurrentProgress(progress);
+      });
+      
       await AsyncStorage.setItem('dailyMealsHistory', JSON.stringify(updatedHistory));
       setMenuVisible(false);
     } catch (error) {
@@ -350,9 +366,47 @@ const App = () => {
     }
   };
 
-  const handleMealUpdated = () => {
-    loadMeals();
-    setEditingMeal(null);
+  const handleMealUpdated = async (updatedMeal: Meal) => {
+    try {
+      const dateString = selectedDate.toISOString().split('T')[0];
+      const updatedMeals = meals.map(meal => 
+        meal.id === updatedMeal.id ? updatedMeal : meal
+      );
+      const totalCalories = updatedMeals.reduce((sum, meal) => sum + meal.calories, 0);
+      
+      const updatedHistory = {
+        ...dailyMealsHistory,
+        [dateString]: {
+          date: dateString,
+          meals: updatedMeals,
+          totalCalories
+        }
+      };
+      
+      setDailyMealsHistory(updatedHistory);
+      setMeals(updatedMeals);
+      setCurrentCalories(totalCalories);
+      
+      const dailyLimit = userData?.dailyCalories || 2000;
+      const progress = totalCalories / dailyLimit;
+      
+      Animated.sequence([
+        Animated.delay(500),
+        Animated.timing(progressAnimation, {
+          toValue: progress,
+          duration: 1000,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true
+        })
+      ]).start(() => {
+        setCurrentProgress(progress);
+      });
+      
+      await AsyncStorage.setItem('dailyMealsHistory', JSON.stringify(updatedHistory));
+      setEditingMeal(null);
+    } catch (error) {
+      console.error('Error updating meal:', error);
+    }
   };
 
   const renderCalendarModal = () => (
@@ -479,6 +533,63 @@ const App = () => {
     }
   };
 
+  const getProgressBarColor = () => {
+    const dailyLimit = userData?.dailyCalories || 2000;
+    const percentage = (currentCalories / dailyLimit) * 100;
+    
+    if (percentage > 135) {
+      return '#FF4444'; // Czerwony - przekroczenie o więcej niż 35%
+    } else if (percentage > 100) {
+      return '#FFE0B2'; // Pomarańczowy - przekroczenie o 0-35%
+    }
+    return '#4CAF50'; // Zielony - w normie
+  };
+
+  const loadSelectedDateData = async (date: string) => {
+    try {
+      const history = await AsyncStorage.getItem('dailyMealsHistory');
+      if (history) {
+        const parsedHistory = JSON.parse(history);
+        const selectedDayData = parsedHistory[date];
+        
+        if (selectedDayData) {
+          setMeals(selectedDayData.meals);
+          setCurrentCalories(selectedDayData.totalCalories);
+          const dailyLimit = userData?.dailyCalories || 2000;
+          const progress = selectedDayData.totalCalories / dailyLimit;
+          
+          Animated.sequence([
+            Animated.delay(500),
+            Animated.timing(progressAnimation, {
+              toValue: progress,
+              duration: 1000,
+              easing: Easing.out(Easing.ease),
+              useNativeDriver: true
+            })
+          ]).start(() => {
+            setCurrentProgress(progress);
+          });
+        } else {
+          setMeals([]);
+          setCurrentCalories(0);
+          Animated.sequence([
+            Animated.delay(500),
+            Animated.timing(progressAnimation, {
+              toValue: 0,
+              duration: 1000,
+              easing: Easing.out(Easing.ease),
+              useNativeDriver: true
+            })
+          ]).start(() => {
+            setCurrentProgress(0);
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading selected date data:', error);
+    }
+  };
+
   if (isSettingsVisible) {
     return (
       <PaperProvider>
@@ -539,11 +650,23 @@ const App = () => {
                     <Text style={styles.caloriesUnit}>kcal</Text>
                   </View>
                   <View style={styles.progressContainer}>
-                    <ProgressBar
-                      progress={getSelectedDayCalories() / (userData?.dailyCalories || 2000)}
-                      color={getSelectedDayCalories() > (userData?.dailyCalories || 2000) ? '#FF4444' : '#4CAF50'}
-                      style={styles.progressBar}
-                    />
+                    <View style={styles.progressBarBackground}>
+                      <AnimatedProgressBar
+                        progress={progressAnimation}
+                        color={(() => {
+                          const dailyLimit = userData?.dailyCalories || 2000;
+                          const percentage = (getSelectedDayCalories() / dailyLimit) * 100;
+                          
+                          if (percentage > 135) {
+                            return '#FF4444'; // Czerwony - przekroczenie o więcej niż 35%
+                          } else if (percentage > 100) {
+                            return '#FFE0B2'; // Pomarańczowy - przekroczenie o 0-35%
+                          }
+                          return '#4CAF50'; // Zielony - w normie
+                        })()}
+                        style={styles.progressBar}
+                      />
+                    </View>
                     <View style={styles.progressLabelContainer}>
                       <Text style={[styles.progressLabel, getSelectedDayCalories() > (userData?.dailyCalories || 2000) && styles.overLimitText]}>
                         {Math.round((getSelectedDayCalories() / (userData?.dailyCalories || 2000)) * 100)}%
@@ -960,6 +1083,24 @@ const styles = StyleSheet.create({
   settingsButtons: {
     padding: 16,
     marginTop: 16,
+  },
+  progressBarContainer: {
+    height: 8,
+    width: '100%',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarBackground: {
+    height: '100%',
+    width: '100%',
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    width: '100%',
+    borderRadius: 4,
   },
 });
 
