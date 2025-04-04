@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, ScrollView, SafeAreaView, Animated, Easing, TouchableOpacity } from 'react-native';
-import { Text, Card, ProgressBar, Button, Provider as PaperProvider, FAB, List, IconButton, Menu } from 'react-native-paper';
+import { StyleSheet, View, ScrollView, SafeAreaView, Animated, Easing, TouchableOpacity, Modal } from 'react-native';
+import { Text, Card, ProgressBar, Button, Provider as PaperProvider, FAB, List, IconButton, Portal } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AddMealForm from './components/AddMealForm';
 import SettingsScreen from './components/SettingsScreen';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 interface UserData {
   dailyCalories: number;
@@ -229,18 +230,13 @@ export default function App() {
                       setSelectedMeal(meal);
                       setMenuVisible(true);
                     }}
+                    style={styles.mealItem}
                   >
-                    <View style={styles.mealItem}>
-                      <View style={styles.mealInfo}>
-                        <Text style={styles.mealName}>{meal.name}</Text>
-                        <Text style={styles.mealCalories}>{meal.calories} kcal</Text>
-                      </View>
-                      <IconButton
-                        icon="chevron-right"
-                        size={20}
-                        style={styles.mealArrow}
-                      />
+                    <View style={styles.mealInfo}>
+                      <Text style={styles.mealName}>{meal.name}</Text>
+                      <Text style={styles.mealCalories}>{meal.calories} kcal</Text>
                     </View>
+                    <Icon name="chevron-right" size={24} color="#666" />
                   </TouchableOpacity>
                 ))
               ) : (
@@ -272,30 +268,49 @@ export default function App() {
             />
           )}
 
-          <Menu
-            visible={menuVisible}
-            onDismiss={() => setMenuVisible(false)}
-            anchor={{ x: 0, y: 0 }}
-          >
-            <Menu.Item
-              onPress={() => {
-                setEditingMeal(selectedMeal);
-                setMenuVisible(false);
-              }}
-              title="Edytuj"
-              leadingIcon="pencil"
-            />
-            <Menu.Item
-              onPress={() => {
-                if (selectedMeal) {
-                  deleteMeal(selectedMeal.id);
-                }
-                setMenuVisible(false);
-              }}
-              title="Usuń"
-              leadingIcon="delete"
-            />
-          </Menu>
+          <Portal>
+            <Modal
+              visible={menuVisible}
+              onDismiss={() => setMenuVisible(false)}
+              style={styles.modal}
+              transparent={true}
+            >
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>{selectedMeal?.name}</Text>
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={[styles.modalAction, styles.editAction]}
+                      onPress={() => {
+                        setMenuVisible(false);
+                        setEditingMeal(selectedMeal);
+                      }}
+                    >
+                      <Icon name="pencil" size={24} color="#FFFFFF" />
+                      <Text style={[styles.modalActionText, styles.editActionText]}>Edytuj</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalAction, styles.deleteAction]}
+                      onPress={() => {
+                        setMenuVisible(false);
+                        deleteMeal(selectedMeal?.id || '');
+                      }}
+                    >
+                      <Icon name="trash" size={24} color="#FFFFFF" />
+                      <Text style={[styles.modalActionText, styles.deleteActionText]}>Usuń</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Button
+                    mode="outlined"
+                    onPress={() => setMenuVisible(false)}
+                    style={styles.modalCloseButton}
+                  >
+                    Zamknij
+                  </Button>
+                </View>
+              </View>
+            </Modal>
+          </Portal>
         </ScrollView>
         <Animated.View style={[styles.fabContainer, { transform: [{ rotate: spinAnimation }] }]}>
           <FAB
@@ -419,9 +434,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
   },
-  mealArrow: {
-    margin: 0,
-  },
   button: {
     marginTop: 16,
   },
@@ -443,5 +455,64 @@ const styles = StyleSheet.create({
   },
   accordion: {
     backgroundColor: '#FFFFFF',
+  },
+  modal: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '80%',
+    maxWidth: 300,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+    color: '#333333',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 16,
+  },
+  modalAction: {
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    width: '45%',
+  },
+  editAction: {
+    backgroundColor: '#4CAF50',
+  },
+  deleteAction: {
+    backgroundColor: '#F44336',
+  },
+  modalActionText: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  editActionText: {
+    color: '#FFFFFF',
+  },
+  deleteActionText: {
+    color: '#FFFFFF',
+  },
+  modalCloseButton: {
+    width: '100%',
+    borderColor: '#666666',
   },
 });
