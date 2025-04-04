@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, ScrollView } from 'react-native';
-import { Text, Card, ProgressBar, Button, Provider as PaperProvider } from 'react-native-paper';
+import { StyleSheet, View, ScrollView, SafeAreaView } from 'react-native';
+import { Text, Card, ProgressBar, Button, Provider as PaperProvider, FAB, List } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import AddMealForm from './components/AddMealForm';
+import SettingsScreen from './components/SettingsScreen';
 
 interface UserData {
   dailyCalories: number;
@@ -20,6 +22,8 @@ export default function App() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [meals, setMeals] = useState<Meal[]>([]);
   const [currentCalories, setCurrentCalories] = useState(0);
+  const [isAddMealModalVisible, setIsAddMealModalVisible] = useState(false);
+  const [isSettingsVisible, setIsSettingsVisible] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -60,71 +64,119 @@ export default function App() {
   const progressPercentage = userData ? currentCalories / userData.dailyCalories : 0;
   const isOverLimit = progressPercentage > 1;
 
+  if (isSettingsVisible) {
+    return (
+      <PaperProvider>
+        <SafeAreaView style={styles.safeArea}>
+          <SettingsScreen />
+          <FAB
+            style={styles.fab}
+            icon="arrow-left"
+            onPress={() => setIsSettingsVisible(false)}
+          />
+        </SafeAreaView>
+      </PaperProvider>
+    );
+  }
+
   return (
     <PaperProvider>
-      <ScrollView style={styles.container}>
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.title}>Dzienne spożycie kalorii</Text>
-            <ProgressBar
-              progress={progressPercentage}
-              color={isOverLimit ? '#FF4444' : '#4CAF50'}
-              style={styles.progressBar}
-            />
-            <Text style={styles.caloriesText}>
-              {currentCalories} / {userData?.dailyCalories || 2000} kcal
-            </Text>
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.title}>Twoje dane</Text>
-            {userData ? (
-              <>
-                <Text>Waga: {userData.weight} kg</Text>
-                <Text>Wzrost: {userData.height} cm</Text>
-                <Text>Dzienne zapotrzebowanie: {userData.dailyCalories} kcal</Text>
-              </>
-            ) : (
-              <Text>Brak danych użytkownika</Text>
-            )}
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.title}>Dzisiejsze posiłki</Text>
-            {meals.length > 0 ? (
-              meals.map((meal) => (
-                <View key={meal.id} style={styles.mealItem}>
-                  <Text>{meal.name}</Text>
-                  <Text>{meal.calories} kcal</Text>
-                </View>
-              ))
-            ) : (
-              <Text>Brak posiłków na dziś</Text>
-            )}
-          </Card.Content>
-        </Card>
-
-        <Button
-          mode="contained"
-          onPress={() => {}}
-          style={styles.button}
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView 
+          style={styles.container}
+          contentContainerStyle={styles.contentContainer}
         >
-          Dodaj posiłek
-        </Button>
-      </ScrollView>
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text style={styles.title}>Dzienne spożycie kalorii</Text>
+              <ProgressBar
+                progress={progressPercentage}
+                color={isOverLimit ? '#FF4444' : '#4CAF50'}
+                style={styles.progressBar}
+              />
+              <Text style={styles.caloriesText}>
+                {currentCalories} / {userData?.dailyCalories || 2000} kcal
+              </Text>
+            </Card.Content>
+          </Card>
+
+          <Card style={styles.card}>
+            <List.Accordion
+              title="Twoje dane"
+              titleStyle={styles.title}
+              style={styles.accordion}
+            >
+              <List.Item
+                title="Waga"
+                description={`${userData?.weight || 0} kg`}
+                left={props => <List.Icon {...props} icon="scale" />}
+              />
+              <List.Item
+                title="Wzrost"
+                description={`${userData?.height || 0} cm`}
+                left={props => <List.Icon {...props} icon="human-male-height" />}
+              />
+              <List.Item
+                title="Dzienne zapotrzebowanie"
+                description={`${userData?.dailyCalories || 0} kcal`}
+                left={props => <List.Icon {...props} icon="food" />}
+              />
+            </List.Accordion>
+          </Card>
+
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text style={styles.title}>Dzisiejsze posiłki</Text>
+              {meals.length > 0 ? (
+                meals.map((meal) => (
+                  <View key={meal.id} style={styles.mealItem}>
+                    <Text>{meal.name}</Text>
+                    <Text>{meal.calories} kcal</Text>
+                  </View>
+                ))
+              ) : (
+                <Text>Brak posiłków na dziś</Text>
+              )}
+            </Card.Content>
+          </Card>
+
+          <Button
+            mode="contained"
+            onPress={() => setIsAddMealModalVisible(true)}
+            style={styles.button}
+          >
+            Dodaj posiłek
+          </Button>
+
+          <AddMealForm
+            visible={isAddMealModalVisible}
+            onClose={() => setIsAddMealModalVisible(false)}
+            onMealAdded={loadMeals}
+          />
+        </ScrollView>
+        <FAB
+          style={styles.fab}
+          icon="cog"
+          onPress={() => setIsSettingsVisible(true)}
+        />
+      </SafeAreaView>
     </PaperProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  container: {
+    flex: 1,
     padding: 16,
+  },
+  contentContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 20,
   },
   card: {
     marginBottom: 16,
@@ -158,5 +210,15 @@ const styles = StyleSheet.create({
   button: {
     marginTop: 16,
     backgroundColor: '#4CAF50',
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#4CAF50',
+  },
+  accordion: {
+    backgroundColor: '#FFFFFF',
   },
 });
