@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Modal, FlatList, TouchableOpacity } from 'react-native';
-import { TextInput, Button, Text, Chip, Searchbar, List } from 'react-native-paper';
+import { TextInput, Button, Text, Chip, Searchbar, List, Portal } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-interface AddMealFormProps {
-  visible: boolean;
-  onClose: () => void;
-  onMealAdded: () => void;
-}
 
 interface Meal {
   id: string;
@@ -23,8 +17,15 @@ interface ProductHistory {
   usageCount: number;
 }
 
-export default function AddMealForm({ visible, onClose, onMealAdded }: AddMealFormProps) {
-  const [mealName, setMealName] = useState('');
+interface AddMealFormProps {
+  visible: boolean;
+  onClose: () => void;
+  onMealAdded: () => void;
+  mealToEdit?: Meal;
+}
+
+export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit }: AddMealFormProps) {
+  const [name, setName] = useState('');
   const [calories, setCalories] = useState('');
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,6 +47,16 @@ export default function AddMealForm({ visible, onClose, onMealAdded }: AddMealFo
       setFilteredHistory(productHistory);
     }
   }, [searchQuery, productHistory]);
+
+  useEffect(() => {
+    if (mealToEdit) {
+      setName(mealToEdit.name);
+      setCalories(mealToEdit.calories.toString());
+    } else {
+      setName('');
+      setCalories('');
+    }
+  }, [mealToEdit]);
 
   const loadProductHistory = async () => {
     try {
@@ -92,13 +103,13 @@ export default function AddMealForm({ visible, onClose, onMealAdded }: AddMealFo
   };
 
   const handleProductSelect = (product: ProductHistory) => {
-    setMealName(product.name);
+    setName(product.name);
     setCalories(product.calories.toString());
     setSearchQuery('');
   };
 
   const handleMealNameChange = (text: string) => {
-    setMealName(text);
+    setName(text);
     if (text.length > 0) {
       const filtered = productHistory.filter(product =>
         product.name.toLowerCase().includes(text.toLowerCase())
@@ -110,160 +121,138 @@ export default function AddMealForm({ visible, onClose, onMealAdded }: AddMealFo
   };
 
   const handleSuggestionSelect = (product: ProductHistory) => {
-    setMealName(product.name);
+    setName(product.name);
     setCalories(product.calories.toString());
     setSuggestions([]);
   };
 
   const handleSubmit = async () => {
-    if (!mealName.trim()) {
-      setError('Nazwa posiłku jest wymagana');
-      return;
-    }
-
-    if (!calories.trim() || isNaN(Number(calories)) || Number(calories) <= 0) {
-      setError('Podaj prawidłową liczbę kalorii');
-      return;
-    }
+    if (!name || !calories) return;
 
     try {
       const newMeal: Meal = {
-        id: Date.now().toString(),
-        name: mealName.trim(),
-        calories: Number(calories),
+        id: mealToEdit?.id || Date.now().toString(),
+        name,
+        calories: parseInt(calories),
         date: new Date().toISOString(),
       };
 
       const existingMeals = await AsyncStorage.getItem('meals');
-      const meals = existingMeals ? JSON.parse(existingMeals) : [];
-      meals.push(newMeal);
+      let meals: Meal[] = [];
+      
+      if (existingMeals) {
+        meals = JSON.parse(existingMeals);
+        if (mealToEdit) {
+          // Aktualizuj istniejący posiłek
+          meals = meals.map(meal => 
+            meal.id === mealToEdit.id ? newMeal : meal
+          );
+        } else {
+          // Dodaj nowy posiłek
+          meals.push(newMeal);
+        }
+      } else {
+        meals = [newMeal];
+      }
+
       await AsyncStorage.setItem('meals', JSON.stringify(meals));
-
-      // Aktualizuj historię produktów
-      await updateProductHistory(mealName.trim(), Number(calories));
-
-      setMealName('');
-      setCalories('');
-      setError('');
       onMealAdded();
       onClose();
     } catch (error) {
       console.error('Error saving meal:', error);
-      setError('Wystąpił błąd podczas zapisywania posiłku');
     }
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-          <Text style={styles.title}>Dodaj nowy posiłek</Text>
-          
-          <View style={styles.inputContainer}>
-            <TextInput
-              label="Nazwa posiłku"
-              value={mealName}
-              onChangeText={handleMealNameChange}
-              style={styles.input}
-              mode="outlined"
-            />
-            {suggestions.length > 0 && (
-              <View style={styles.suggestionsContainer}>
-                {suggestions.map((product) => (
-                  <TouchableOpacity
-                    key={product.name}
-                    onPress={() => handleSuggestionSelect(product)}
-                    style={styles.suggestionItem}
-                  >
-                    <Text style={styles.suggestionText}>
-                      {product.name} ({product.calories} kcal)
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+    <Portal>
+      <Modal
+        visible={visible}
+        onDismiss={onClose}
+        style={styles.modal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.title}>
+              {mealToEdit ? 'Edytuj posiłek' : 'Dodaj nowy posiłek'}
+            </Text>
+
+            <View style={styles.formContainer}>
+              <TextInput
+                label="Nazwa posiłku"
+                value={name}
+                onChangeText={handleMealNameChange}
+                style={styles.input}
+                mode="outlined"
+                dense
+              />
+
+              <TextInput
+                label="Kalorie"
+                value={calories}
+                onChangeText={setCalories}
+                keyboardType="numeric"
+                style={styles.input}
+                mode="outlined"
+                dense
+              />
+
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+
+              <View style={styles.buttonContainer}>
+                <Button
+                  mode="outlined"
+                  onPress={onClose}
+                  style={[styles.button, styles.cancelButton]}
+                >
+                  Anuluj
+                </Button>
+                <Button
+                  mode="contained"
+                  onPress={handleSubmit}
+                  style={[styles.button, styles.submitButton]}
+                >
+                  {mealToEdit ? 'Zapisz' : 'Dodaj'}
+                </Button>
               </View>
-            )}
-          </View>
-
-          <TextInput
-            label="Kalorie"
-            value={calories}
-            onChangeText={setCalories}
-            keyboardType="numeric"
-            style={styles.input}
-            mode="outlined"
-          />
-
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-
-          <View style={styles.buttonContainer}>
-            <Button
-              mode="outlined"
-              onPress={onClose}
-              style={styles.button}
-            >
-              Anuluj
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleSubmit}
-              style={styles.button}
-            >
-              Dodaj
-            </Button>
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+    </Portal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalContainer: {
+  modal: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
+  modalContainer: {
     width: '90%',
     maxWidth: 400,
-    maxHeight: '80%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 24,
+    margin: 20,
+  },
+  modalContent: {
+    alignItems: 'center',
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
+    color: '#333333',
   },
-  searchBar: {
-    marginBottom: 16,
-  },
-  historyContainer: {
-    marginBottom: 16,
-  },
-  historyTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  historyChip: {
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  inputContainer: {
-    position: 'relative',
-    marginBottom: 16,
+  formContainer: {
+    width: '100%',
   },
   input: {
     marginBottom: 16,
+    backgroundColor: 'white',
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -272,30 +261,18 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    marginHorizontal: 8,
+    marginHorizontal: 4,
+  },
+  cancelButton: {
+    borderColor: '#666666',
+  },
+  submitButton: {
+    backgroundColor: '#4CAF50',
   },
   error: {
-    color: 'red',
-    marginBottom: 16,
+    color: '#FF4444',
+    fontSize: 12,
+    marginBottom: 8,
     textAlign: 'center',
-  },
-  suggestionsContainer: {
-    position: 'absolute',
-    top: 60,
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
-    borderRadius: 4,
-    elevation: 4,
-    zIndex: 1,
-    maxHeight: 200,
-  },
-  suggestionItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  suggestionText: {
-    fontSize: 16,
   },
 }); 

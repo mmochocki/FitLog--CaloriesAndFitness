@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, ScrollView, SafeAreaView, Animated, Easing } from 'react-native';
-import { Text, Card, ProgressBar, Button, Provider as PaperProvider, FAB, List } from 'react-native-paper';
+import { StyleSheet, View, ScrollView, SafeAreaView, Animated, Easing, TouchableOpacity } from 'react-native';
+import { Text, Card, ProgressBar, Button, Provider as PaperProvider, FAB, List, IconButton, Modal, Portal } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AddMealForm from './components/AddMealForm';
 import SettingsScreen from './components/SettingsScreen';
@@ -32,6 +32,9 @@ export default function App() {
   const [isAddMealModalVisible, setIsAddMealModalVisible] = useState(false);
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const spinValue = useRef(new Animated.Value(0)).current;
+  const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
+  const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -96,6 +99,22 @@ export default function App() {
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
+
+  const deleteMeal = async (mealId: string) => {
+    try {
+      const updatedMeals = meals.filter(meal => meal.id !== mealId);
+      await AsyncStorage.setItem('meals', JSON.stringify(updatedMeals));
+      setMeals(updatedMeals);
+      loadMeals(); // Odśwież wyświetlanie kalorii
+    } catch (error) {
+      console.error('Error deleting meal:', error);
+    }
+  };
+
+  const handleMealUpdated = () => {
+    loadMeals();
+    setEditingMeal(null);
+  };
 
   if (isSettingsVisible) {
     return (
@@ -177,10 +196,25 @@ export default function App() {
               <Text style={styles.title}>Dzisiejsze posiłki</Text>
               {meals.length > 0 ? (
                 meals.map((meal) => (
-                  <View key={meal.id} style={styles.mealItem}>
-                    <Text>{meal.name}</Text>
-                    <Text>{meal.calories} kcal</Text>
-                  </View>
+                  <TouchableOpacity
+                    key={meal.id}
+                    onPress={() => {
+                      setSelectedMeal(meal);
+                      setMenuVisible(true);
+                    }}
+                  >
+                    <View style={styles.mealItem}>
+                      <View style={styles.mealInfo}>
+                        <Text style={styles.mealName}>{meal.name}</Text>
+                        <Text style={styles.mealCalories}>{meal.calories} kcal</Text>
+                      </View>
+                      <IconButton
+                        icon="chevron-right"
+                        size={20}
+                        style={styles.mealArrow}
+                      />
+                    </View>
+                  </TouchableOpacity>
                 ))
               ) : (
                 <Text>Brak posiłków na dziś</Text>
@@ -201,6 +235,68 @@ export default function App() {
             onClose={() => setIsAddMealModalVisible(false)}
             onMealAdded={loadMeals}
           />
+
+          {editingMeal && (
+            <AddMealForm
+              visible={!!editingMeal}
+              onClose={() => setEditingMeal(null)}
+              onMealAdded={handleMealUpdated}
+              mealToEdit={editingMeal}
+            />
+          )}
+
+          <Portal>
+            <Modal
+              visible={menuVisible}
+              onDismiss={() => setMenuVisible(false)}
+              contentContainerStyle={styles.modalContainer}
+            >
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>{selectedMeal?.name}</Text>
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.modalActionButton}
+                    onPress={() => {
+                      setEditingMeal(selectedMeal);
+                      setMenuVisible(false);
+                    }}
+                  >
+                    <IconButton
+                      icon="pencil"
+                      size={24}
+                      iconColor="#FFFFFF"
+                      style={[styles.modalIcon, { backgroundColor: PRIMARY_COLOR }]}
+                    />
+                    <Text style={styles.modalActionText}>Edytuj</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalActionButton}
+                    onPress={() => {
+                      if (selectedMeal) {
+                        deleteMeal(selectedMeal.id);
+                      }
+                      setMenuVisible(false);
+                    }}
+                  >
+                    <IconButton
+                      icon="delete"
+                      size={24}
+                      iconColor="#FFFFFF"
+                      style={[styles.modalIcon, { backgroundColor: '#FF4444' }]}
+                    />
+                    <Text style={styles.modalActionText}>Usuń</Text>
+                  </TouchableOpacity>
+                </View>
+                <Button
+                  mode="outlined"
+                  onPress={() => setMenuVisible(false)}
+                  style={styles.modalCloseButton}
+                >
+                  Zamknij
+                </Button>
+              </View>
+            </Modal>
+          </Portal>
         </ScrollView>
         <Animated.View style={[styles.fabContainer, { transform: [{ rotate: spinAnimation }] }]}>
           <FAB
@@ -304,9 +400,28 @@ const styles = StyleSheet.create({
   mealItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    alignItems: 'center',
+    paddingVertical: 1,
+    paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#EEEEEE',
+  },
+  mealInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mealName: {
+    fontSize: 16,
+    color: '#333333',
+    marginRight: 8,
+  },
+  mealCalories: {
+    fontSize: 14,
+    color: '#666666',
+  },
+  mealArrow: {
+    margin: 0,
   },
   button: {
     marginTop: 16,
@@ -329,5 +444,43 @@ const styles = StyleSheet.create({
   },
   accordion: {
     backgroundColor: '#FFFFFF',
+  },
+  modalContainer: {
+    backgroundColor: 'white',
+    margin: 20,
+    borderRadius: 12,
+    padding: 20,
+  },
+  modalContent: {
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 20,
+  },
+  modalActionButton: {
+    alignItems: 'center',
+  },
+  modalIcon: {
+    margin: 0,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  modalActionText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#333333',
+  },
+  modalCloseButton: {
+    width: '100%',
   },
 });
