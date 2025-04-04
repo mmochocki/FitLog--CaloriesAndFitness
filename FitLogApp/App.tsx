@@ -20,20 +20,30 @@ const PRIMARY_COLOR = '#4CAF50';
 const LIGHTER_PRIMARY_COLOR = '#66BB6A';
 
 const AnimatedProgressBar = ({ progress, color, style }: { progress: Animated.Value, color: string, style?: any }) => {
+  const backgroundColor = progress.interpolate({
+    inputRange: [0, 1, 1.35],
+    outputRange: ['#E0E0E0', '#E0E0E0', '#FFE0B2']
+  });
+
+  const fillColor = progress.interpolate({
+    inputRange: [0, 1, 1.35],
+    outputRange: ['#4CAF50', '#4CAF50', '#FF4444']
+  });
+
   return (
     <View style={[styles.progressBarContainer, style]}>
-      <View style={styles.progressBarBackground}>
+      <Animated.View style={[styles.progressBarBackground, { backgroundColor }]}>
         <Animated.View 
           style={[
             styles.progressBarFill, 
             { 
-              backgroundColor: color,
+              backgroundColor: fillColor,
               transform: [{ scaleX: progress }],
               width: '100%'
             }
           ]} 
         />
-      </View>
+      </Animated.View>
     </View>
   );
 };
