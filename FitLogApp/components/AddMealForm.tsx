@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, FlatList, TouchableOpacity, ScrollView, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, Text, Chip, Searchbar, List, Portal, Modal } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeMode } from '../types';
@@ -132,109 +132,121 @@ export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit,
         onDismiss={onClose}
         contentContainerStyle={styles.modalContainer}
       >
-        <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-          <Text style={[styles.modalTitle, { color: colors.text }]}>
-            {mealToEdit ? 'Edytuj posiłek' : 'Dodaj nowy posiłek'}
-          </Text>
-          
-          <View style={styles.formContainer}>
-            <TextInput
-              label="Nazwa posiłku"
-              value={name}
-              onChangeText={handleMealNameChange}
-              style={styles.input}
-              mode="outlined"
-              error={!!error}
-              outlineColor={colors.border}
-              activeOutlineColor={colors.primary}
-              textColor={colors.text}
-              theme={{ 
-                colors: { 
-                  background: colors.card, 
-                  placeholder: colors.textSecondary, 
-                  onSurfaceVariant: colors.textSecondary,
-                  surface: colors.card,
-                  surfaceVariant: colors.card,
-                  primary: colors.primary
-                } 
-              }}
-            />
-            
-            {suggestions.length > 0 && (
-              <View style={[styles.suggestionsContainer, { 
-                backgroundColor: colors.card,
-                borderColor: themeMode === 'dark' ? '#FFFFFF' : colors.border
-              }]}>
-                <Text style={[styles.suggestionsTitle, { color: themeMode === 'dark' ? '#E0E0E0' : colors.textSecondary }]}>Propozycje z historii:</Text>
-                <FlatList
-                  data={suggestions}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      onPress={() => handleSuggestionSelect(item)}
-                      style={[styles.suggestionItem, { borderBottomColor: themeMode === 'dark' ? 'rgba(255, 255, 255, 0.15)' : colors.border }]}
-                    >
-                      <View style={styles.suggestionContent}>
-                        <Text style={[styles.suggestionName, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
-                        <View style={[styles.suggestionCalories, { backgroundColor: themeMode === 'dark' ? colors.primaryDark : colors.primaryLight }]}>
-                          <Text style={[styles.caloriesText, { color: themeMode === 'dark' ? '#FFFFFF' : '#4CAF50' }]}>{item.calories}</Text>
-                          <Text style={[styles.caloriesUnit, { color: themeMode === 'dark' ? '#FFFFFF' : '#666' }]}>kcal</Text>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                  style={styles.suggestionsList}
-                  nestedScrollEnabled
-                  showsVerticalScrollIndicator={false}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ width: '100%', alignItems: 'center' }}
+        >
+          <ScrollView 
+            keyboardShouldPersistTaps="always"
+            contentContainerStyle={{ flexGrow: 1, alignItems: 'center' }}
+            style={{ width: '100%' }}
+          >
+            <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {mealToEdit ? 'Edytuj posiłek' : 'Dodaj nowy posiłek'}
+              </Text>
+              
+              <View style={styles.formContainer}>
+                <TextInput
+                  label="Nazwa posiłku"
+                  value={name}
+                  onChangeText={handleMealNameChange}
+                  style={styles.input}
+                  mode="outlined"
+                  error={!!error}
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.text}
+                  theme={{ 
+                    colors: { 
+                      background: colors.card, 
+                      placeholder: colors.textSecondary, 
+                      onSurfaceVariant: colors.textSecondary,
+                      surface: colors.card,
+                      surfaceVariant: colors.card,
+                      primary: colors.primary
+                    } 
+                  }}
                 />
+                
+                {suggestions.length > 0 && (
+                  <View style={[styles.suggestionsContainer, { 
+                    backgroundColor: colors.card,
+                    borderColor: themeMode === 'dark' ? '#FFFFFF' : colors.border
+                  }]}>
+                    <Text style={[styles.suggestionsTitle, { color: themeMode === 'dark' ? '#E0E0E0' : colors.textSecondary }]}>Propozycje z historii:</Text>
+                    <FlatList
+                      data={suggestions}
+                      keyboardShouldPersistTaps="always"
+                      keyExtractor={(item) => item.id}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          onPress={() => handleSuggestionSelect(item)}
+                          style={[styles.suggestionItem, { borderBottomColor: themeMode === 'dark' ? 'rgba(255, 255, 255, 0.15)' : colors.border }]}
+                        >
+                          <View style={styles.suggestionContent}>
+                            <Text style={[styles.suggestionName, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
+                            <View style={[styles.suggestionCalories, { backgroundColor: themeMode === 'dark' ? colors.primaryDark : colors.primaryLight }]}>
+                              <Text style={[styles.caloriesText, { color: themeMode === 'dark' ? '#FFFFFF' : '#4CAF50' }]}>{item.calories}</Text>
+                              <Text style={[styles.caloriesUnit, { color: themeMode === 'dark' ? '#FFFFFF' : '#666' }]}>kcal</Text>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                      style={styles.suggestionsList}
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator={false}
+                    />
+                  </View>
+                )}
+                
+                <TextInput
+                  label="Kalorie"
+                  value={calories}
+                  onChangeText={setCalories}
+                  keyboardType="numeric"
+                  style={styles.input}
+                  mode="outlined"
+                  error={!!error}
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.text}
+                  theme={{ 
+                    colors: { 
+                      background: colors.card, 
+                      placeholder: colors.textSecondary, 
+                      onSurfaceVariant: colors.textSecondary,
+                      surface: colors.card,
+                      surfaceVariant: colors.card,
+                      primary: colors.primary
+                    } 
+                  }}
+                />
+                
+                {error ? <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
               </View>
-            )}
-            
-            <TextInput
-              label="Kalorie"
-              value={calories}
-              onChangeText={setCalories}
-              keyboardType="numeric"
-              style={styles.input}
-              mode="outlined"
-              error={!!error}
-              outlineColor={colors.border}
-              activeOutlineColor={colors.primary}
-              textColor={colors.text}
-              theme={{ 
-                colors: { 
-                  background: colors.card, 
-                  placeholder: colors.textSecondary, 
-                  onSurfaceVariant: colors.textSecondary,
-                  surface: colors.card,
-                  surfaceVariant: colors.card,
-                  primary: colors.primary
-                } 
-              }}
-            />
-            
-            {error ? <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
-          </View>
-          
-          <View style={styles.buttonContainer}>
-            <Button
-              mode="outlined"
-              onPress={onClose}
-              style={[styles.button, styles.cancelButton, { borderColor: colors.border }]}
-              textColor={colors.textSecondary}
-            >
-              Anuluj
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleSubmit}
-              style={[styles.button, styles.submitButton, { backgroundColor: themeMode === 'dark' ? colors.buttonPrimary : colors.primary }]}
-              textColor="#FFFFFF"
-            >
-              {mealToEdit ? 'Zapisz zmiany' : 'Dodaj posiłek'}
-            </Button>
-          </View>
-        </View>
+              
+              <View style={styles.buttonContainer}>
+                <Button
+                  mode="outlined"
+                  onPress={onClose}
+                  style={[styles.button, styles.cancelButton, { borderColor: colors.border }]}
+                  textColor={colors.textSecondary}
+                >
+                  Anuluj
+                </Button>
+                <Button
+                  mode="contained"
+                  onPress={handleSubmit}
+                  style={[styles.button, styles.submitButton, { backgroundColor: colors.buttonPrimary }]}
+                  textColor="#FFFFFF"
+                >
+                  {mealToEdit ? 'Zapisz zmiany' : 'Dodaj posiłek'}
+                </Button>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </Portal>
   );

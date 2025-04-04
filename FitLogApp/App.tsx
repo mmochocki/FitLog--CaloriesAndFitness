@@ -824,10 +824,10 @@ const App = () => {
             </Card>
 
             <Button
-              mode="contained"
               onPress={() => setIsAddMealModalVisible(true)}
-              style={[styles.button, { backgroundColor: themeMode === 'dark' ? colors.buttonPrimary : colors.primary }]}
-              textColor="#FFFFFF"
+              mode="contained"
+              style={[styles.button, { backgroundColor: colors.buttonPrimary }]}
+              labelStyle={{ color: '#FFFFFF' }}
             >
               Dodaj posiłek
             </Button>
@@ -861,7 +861,7 @@ const App = () => {
                     <Text style={[styles.modalTitle, { color: colors.text }]}>{selectedMeal?.name}</Text>
                     <View style={styles.modalActions}>
                       <TouchableOpacity
-                        style={[styles.modalAction, styles.editAction, { backgroundColor: themeMode === 'dark' ? colors.buttonPrimary : colors.primary }]}
+                        style={[styles.modalAction, styles.editAction, { backgroundColor: colors.buttonPrimary }]}
                         onPress={() => {
                           setMenuVisible(false);
                           setEditingMeal(selectedMeal);
@@ -875,10 +875,12 @@ const App = () => {
                         <Text style={[styles.modalActionText, styles.editActionText]}>Edytuj</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.modalAction, styles.deleteAction, { backgroundColor: themeMode === 'dark' ? colors.buttonDanger : colors.danger }]}
+                        style={[styles.modalAction, styles.deleteAction, { backgroundColor: colors.buttonDanger }]}
                         onPress={() => {
+                          if (selectedMeal) {
+                            deleteMeal(selectedMeal.id);
+                          }
                           setMenuVisible(false);
-                          deleteMeal(selectedMeal?.id || '');
                         }}
                       >
                         <IconButton

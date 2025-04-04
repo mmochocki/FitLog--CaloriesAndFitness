@@ -31,7 +31,7 @@ export const DARK_COLORS = {
   danger: '#F48FB1',
   warning: '#FFD54F',
   success: '#81C784',
-  buttonPrimary: '#2E7D32',
+  buttonPrimary: '#3D8B41',
   buttonDanger: '#C2185B',
 };
 

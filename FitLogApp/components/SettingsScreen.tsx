@@ -314,8 +314,8 @@ export default function SettingsScreen({ onUserDataUpdate, onBack, themeMode = '
         <View style={styles.buttonContainer}>
           <Button
             mode="contained"
-            onPress={saveUserData}
-            style={[styles.button, { backgroundColor: isSaved ? colors.textSecondary : (themeMode === 'dark' ? colors.buttonPrimary : colors.primary) }]}
+            onPress={handleBack}
+            style={[styles.button, { backgroundColor: isSaved ? colors.textSecondary : colors.buttonPrimary }]}
             icon={isSaved ? "check" : undefined}
             textColor="#FFFFFF"
           >
