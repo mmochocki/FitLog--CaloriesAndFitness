@@ -28,7 +28,8 @@ const AnimatedProgressBar = ({ progress, color, style }: { progress: Animated.Va
             styles.progressBarFill, 
             { 
               backgroundColor: color,
-              transform: [{ scaleX: progress }]
+              transform: [{ scaleX: progress }],
+              width: '100%'
             }
           ]} 
         />
@@ -1085,22 +1086,24 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   progressBarContainer: {
-    height: 8,
+    height: 24,
     width: '100%',
-    borderRadius: 4,
+    borderRadius: 12,
     overflow: 'hidden',
+    backgroundColor: '#E0E0E0',
   },
   progressBarBackground: {
     height: '100%',
     width: '100%',
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    width: '100%',
-    borderRadius: 4,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    borderRadius: 12,
   },
 });
 
