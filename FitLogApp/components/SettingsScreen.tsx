@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, ScrollView, SafeAreaView } from 'react-native';
-import { TextInput, Button, Text, Card, Divider, Switch } from 'react-native-paper';
+import { TextInput, Button, Text, Card, Divider, Switch, List } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface UserData {
@@ -15,6 +15,7 @@ interface UserData {
 
 interface SettingsScreenProps {
   onUserDataUpdate: (data: UserData) => Promise<void>;
+  onBack: () => void;
 }
 
 const activityLevels = [
@@ -25,7 +26,7 @@ const activityLevels = [
   { value: 'very_active', label: 'Bardzo aktywny tryb życia (codziennie)' },
 ];
 
-export default function SettingsScreen({ onUserDataUpdate }: SettingsScreenProps) {
+export default function SettingsScreen({ onUserDataUpdate, onBack }: SettingsScreenProps) {
   const [userData, setUserData] = useState<UserData>({
     weight: 0,
     height: 0,
@@ -38,6 +39,8 @@ export default function SettingsScreen({ onUserDataUpdate }: SettingsScreenProps
   const [bmi, setBmi] = useState<number | null>(null);
   const [bmiCategory, setBmiCategory] = useState<string>('');
   const [calculatedCalories, setCalculatedCalories] = useState<number>(0);
+  const [expanded, setExpanded] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -72,6 +75,10 @@ export default function SettingsScreen({ onUserDataUpdate }: SettingsScreenProps
   const saveUserData = async () => {
     try {
       await onUserDataUpdate(userData);
+      setIsSaved(true);
+      setTimeout(() => {
+        setIsSaved(false);
+      }, 2000);
     } catch (error) {
       console.error('Error saving user data:', error);
     }
@@ -114,13 +121,29 @@ export default function SettingsScreen({ onUserDataUpdate }: SettingsScreenProps
     return Math.round(bmr * activityMultipliers[userData.activityLevel]);
   };
 
+  const handleBack = async () => {
+    try {
+      await saveUserData();
+      onBack();
+    } catch (error) {
+      console.error('Error saving settings:', error);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container}>
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.title}>Twoje dane</Text>
-            
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+      >
+        <List.Accordion
+          title="Twoje dane"
+          titleStyle={styles.title}
+          style={styles.accordion}
+          expanded={expanded}
+          onPress={() => setExpanded(!expanded)}
+        >
+          <View style={styles.accordionContent}>
             <TextInput
               label="Waga (kg)"
               value={userData.weight.toString()}
@@ -177,7 +200,11 @@ export default function SettingsScreen({ onUserDataUpdate }: SettingsScreenProps
                 {level.label}
               </Button>
             ))}
+          </View>
+        </List.Accordion>
 
+        <Card style={styles.card}>
+          <Card.Content>
             <View style={styles.manualCaloriesContainer}>
               <Text style={styles.sectionTitle}>Ręczne ustawienie kalorii</Text>
               <View style={styles.switchContainer}>
@@ -221,16 +248,17 @@ export default function SettingsScreen({ onUserDataUpdate }: SettingsScreenProps
                 <Text style={styles.resultCategory}>{bmiCategory}</Text>
               </View>
             )}
-
-            <Button
-              mode="contained"
-              onPress={saveUserData}
-              style={styles.saveButton}
-            >
-              Zapisz ustawienia
-            </Button>
           </Card.Content>
         </Card>
+
+        <Button
+          mode="contained"
+          onPress={saveUserData}
+          style={[styles.saveButton, isSaved && styles.savedButton]}
+          icon={isSaved ? "check" : undefined}
+        >
+          {isSaved ? "Zapisano" : "Zapisz ustawienia"}
+        </Button>
       </ScrollView>
     </SafeAreaView>
   );
@@ -245,9 +273,14 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
+  contentContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
+    marginBottom: 16,
   },
   title: {
     fontSize: 24,
@@ -299,7 +332,11 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: 16,
+    marginBottom: 32,
     backgroundColor: '#4CAF50',
+  },
+  savedButton: {
+    backgroundColor: '#9E9E9E',
   },
   manualCaloriesContainer: {
     marginTop: 16,
@@ -309,5 +346,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+  },
+  accordion: {
+    marginBottom: 16,
+  },
+  accordionContent: {
+    padding: 16,
   },
 }); 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, ScrollView, SafeAreaView, Animated, Easing, TouchableOpacity } from 'react-native';
-import { Text, Card, ProgressBar, Button, Provider as PaperProvider, FAB, List, IconButton, Modal, Portal } from 'react-native-paper';
+import { Text, Card, ProgressBar, Button, Provider as PaperProvider, FAB, List, IconButton, Menu } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AddMealForm from './components/AddMealForm';
 import SettingsScreen from './components/SettingsScreen';
@@ -56,6 +56,15 @@ export default function App() {
     try {
       await AsyncStorage.setItem('userData', JSON.stringify(newData));
       setUserData(newData);
+      // Odśwież currentCalories po zmianie danych użytkownika
+      const today = new Date().toISOString().split('T')[0];
+      const todayMeals = meals.filter((meal: Meal) => 
+        meal.date.startsWith(today)
+      );
+      const totalCalories = todayMeals.reduce((sum: number, meal: Meal) => 
+        sum + meal.calories, 0
+      );
+      setCurrentCalories(totalCalories);
     } catch (error) {
       console.error('Error updating user data:', error);
     }
@@ -120,12 +129,30 @@ export default function App() {
     return (
       <PaperProvider>
         <SafeAreaView style={styles.safeArea}>
-          <SettingsScreen onUserDataUpdate={updateUserData} />
+          <SettingsScreen 
+            onUserDataUpdate={updateUserData} 
+            onBack={async () => {
+              // Najpierw zapisujemy ustawienia
+              if (userData) {
+                await updateUserData(userData);
+              }
+              // Następnie wracamy do strony głównej
+              setIsSettingsVisible(false);
+            }}
+          />
           <Animated.View style={[styles.fabContainer, { transform: [{ rotate: spinAnimation }] }]}>
             <FAB
               style={[styles.fab, { backgroundColor: LIGHTER_PRIMARY_COLOR }]}
               icon="arrow-left"
-              onPress={() => setIsSettingsVisible(false)}
+              onPress={async () => {
+                spin();
+                // Najpierw zapisujemy ustawienia
+                if (userData) {
+                  await updateUserData(userData);
+                }
+                // Następnie wracamy do strony głównej
+                setIsSettingsVisible(false);
+              }}
               color="#FFFFFF"
             />
           </Animated.View>
@@ -245,58 +272,30 @@ export default function App() {
             />
           )}
 
-          <Portal>
-            <Modal
-              visible={menuVisible}
-              onDismiss={() => setMenuVisible(false)}
-              contentContainerStyle={styles.modalContainer}
-            >
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>{selectedMeal?.name}</Text>
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={styles.modalActionButton}
-                    onPress={() => {
-                      setEditingMeal(selectedMeal);
-                      setMenuVisible(false);
-                    }}
-                  >
-                    <IconButton
-                      icon="pencil"
-                      size={24}
-                      iconColor="#FFFFFF"
-                      style={[styles.modalIcon, { backgroundColor: PRIMARY_COLOR }]}
-                    />
-                    <Text style={styles.modalActionText}>Edytuj</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.modalActionButton}
-                    onPress={() => {
-                      if (selectedMeal) {
-                        deleteMeal(selectedMeal.id);
-                      }
-                      setMenuVisible(false);
-                    }}
-                  >
-                    <IconButton
-                      icon="delete"
-                      size={24}
-                      iconColor="#FFFFFF"
-                      style={[styles.modalIcon, { backgroundColor: '#FF4444' }]}
-                    />
-                    <Text style={styles.modalActionText}>Usuń</Text>
-                  </TouchableOpacity>
-                </View>
-                <Button
-                  mode="outlined"
-                  onPress={() => setMenuVisible(false)}
-                  style={styles.modalCloseButton}
-                >
-                  Zamknij
-                </Button>
-              </View>
-            </Modal>
-          </Portal>
+          <Menu
+            visible={menuVisible}
+            onDismiss={() => setMenuVisible(false)}
+            anchor={{ x: 0, y: 0 }}
+          >
+            <Menu.Item
+              onPress={() => {
+                setEditingMeal(selectedMeal);
+                setMenuVisible(false);
+              }}
+              title="Edytuj"
+              leadingIcon="pencil"
+            />
+            <Menu.Item
+              onPress={() => {
+                if (selectedMeal) {
+                  deleteMeal(selectedMeal.id);
+                }
+                setMenuVisible(false);
+              }}
+              title="Usuń"
+              leadingIcon="delete"
+            />
+          </Menu>
         </ScrollView>
         <Animated.View style={[styles.fabContainer, { transform: [{ rotate: spinAnimation }] }]}>
           <FAB
@@ -444,43 +443,5 @@ const styles = StyleSheet.create({
   },
   accordion: {
     backgroundColor: '#FFFFFF',
-  },
-  modalContainer: {
-    backgroundColor: 'white',
-    margin: 20,
-    borderRadius: 12,
-    padding: 20,
-  },
-  modalContent: {
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginBottom: 20,
-  },
-  modalActionButton: {
-    alignItems: 'center',
-  },
-  modalIcon: {
-    margin: 0,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
-  modalActionText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#333333',
-  },
-  modalCloseButton: {
-    width: '100%',
   },
 });

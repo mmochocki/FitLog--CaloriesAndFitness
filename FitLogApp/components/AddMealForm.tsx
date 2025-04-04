@@ -168,54 +168,57 @@ export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit 
       <Modal
         visible={visible}
         onDismiss={onClose}
-        style={styles.modal}
+        contentContainerStyle={styles.modal}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.title}>
-              {mealToEdit ? 'Edytuj posiłek' : 'Dodaj nowy posiłek'}
-            </Text>
-
-            <View style={styles.formContainer}>
-              <TextInput
-                label="Nazwa posiłku"
-                value={name}
-                onChangeText={handleMealNameChange}
-                style={styles.input}
-                mode="outlined"
-                dense
-              />
-
-              <TextInput
-                label="Kalorie"
-                value={calories}
-                onChangeText={setCalories}
-                keyboardType="numeric"
-                style={styles.input}
-                mode="outlined"
-                dense
-              />
-
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-
-              <View style={styles.buttonContainer}>
-                <Button
-                  mode="outlined"
-                  onPress={onClose}
-                  style={[styles.button, styles.cancelButton]}
-                >
-                  Anuluj
-                </Button>
-                <Button
-                  mode="contained"
-                  onPress={handleSubmit}
-                  style={[styles.button, styles.submitButton]}
-                >
-                  {mealToEdit ? 'Zapisz' : 'Dodaj'}
-                </Button>
-              </View>
-            </View>
+        <Text style={styles.title}>
+          {mealToEdit ? 'Edytuj posiłek' : 'Dodaj nowy posiłek'}
+        </Text>
+        <TextInput
+          label="Nazwa posiłku"
+          value={name}
+          onChangeText={handleMealNameChange}
+          style={styles.input}
+          mode="outlined"
+        />
+        {suggestions.length > 0 && (
+          <View style={styles.suggestionsContainer}>
+            {suggestions.map((product) => (
+              <TouchableOpacity
+                key={product.name}
+                onPress={() => handleSuggestionSelect(product)}
+                style={styles.suggestionItem}
+              >
+                <Text style={styles.suggestionText}>
+                  {product.name} ({product.calories} kcal)
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
+        )}
+        <TextInput
+          label="Kalorie"
+          value={calories}
+          onChangeText={setCalories}
+          keyboardType="numeric"
+          style={styles.input}
+          mode="outlined"
+        />
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        <View style={styles.buttonContainer}>
+          <Button
+            mode="outlined"
+            onPress={onClose}
+            style={styles.button}
+          >
+            Anuluj
+          </Button>
+          <Button
+            mode="contained"
+            onPress={handleSubmit}
+            style={styles.button}
+          >
+            {mealToEdit ? 'Zapisz zmiany' : 'Dodaj posiłek'}
+          </Button>
         </View>
       </Modal>
     </Portal>
@@ -224,55 +227,51 @@ export default function AddMealForm({ visible, onClose, onMealAdded, mealToEdit 
 
 const styles = StyleSheet.create({
   modal: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContainer: {
-    width: '90%',
-    maxWidth: 400,
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 24,
+    padding: 20,
     margin: 20,
-  },
-  modalContent: {
-    alignItems: 'center',
+    borderRadius: 8,
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 16,
     textAlign: 'center',
-    color: '#333333',
-  },
-  formContainer: {
-    width: '100%',
   },
   input: {
     marginBottom: 16,
-    backgroundColor: 'white',
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 8,
   },
   button: {
     flex: 1,
     marginHorizontal: 4,
   },
-  cancelButton: {
-    borderColor: '#666666',
-  },
-  submitButton: {
-    backgroundColor: '#4CAF50',
-  },
   error: {
-    color: '#FF4444',
-    fontSize: 12,
-    marginBottom: 8,
+    color: 'red',
+    marginBottom: 16,
     textAlign: 'center',
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    borderRadius: 4,
+    elevation: 4,
+    zIndex: 1,
+    maxHeight: 200,
+  },
+  suggestionItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  suggestionText: {
+    fontSize: 16,
   },
 }); 
