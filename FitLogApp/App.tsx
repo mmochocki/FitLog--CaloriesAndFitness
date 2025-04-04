@@ -9,6 +9,10 @@ interface UserData {
   dailyCalories: number;
   weight: number;
   height: number;
+  age: number;
+  gender: 'male' | 'female';
+  activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+  manualCalories: boolean;
 }
 
 interface Meal {
@@ -41,6 +45,15 @@ export default function App() {
     }
   };
 
+  const updateUserData = async (newData: UserData) => {
+    try {
+      await AsyncStorage.setItem('userData', JSON.stringify(newData));
+      setUserData(newData);
+    } catch (error) {
+      console.error('Error updating user data:', error);
+    }
+  };
+
   const loadMeals = async () => {
     try {
       const data = await AsyncStorage.getItem('meals');
@@ -68,7 +81,7 @@ export default function App() {
     return (
       <PaperProvider>
         <SafeAreaView style={styles.safeArea}>
-          <SettingsScreen />
+          <SettingsScreen onUserDataUpdate={updateUserData} />
           <FAB
             style={styles.fab}
             icon="arrow-left"

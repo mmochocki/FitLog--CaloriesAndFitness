@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Modal } from 'react-native';
-import { TextInput, Button, Text } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Modal, FlatList, TouchableOpacity } from 'react-native';
+import { TextInput, Button, Text, Chip, Searchbar, List } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface AddMealFormProps {
@@ -16,10 +16,104 @@ interface Meal {
   date: string;
 }
 
+interface ProductHistory {
+  name: string;
+  calories: number;
+  lastUsed: string;
+  usageCount: number;
+}
+
 export default function AddMealForm({ visible, onClose, onMealAdded }: AddMealFormProps) {
   const [mealName, setMealName] = useState('');
   const [calories, setCalories] = useState('');
   const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [productHistory, setProductHistory] = useState<ProductHistory[]>([]);
+  const [filteredHistory, setFilteredHistory] = useState<ProductHistory[]>([]);
+  const [suggestions, setSuggestions] = useState<ProductHistory[]>([]);
+
+  useEffect(() => {
+    loadProductHistory();
+  }, []);
+
+  useEffect(() => {
+    if (searchQuery) {
+      const filtered = productHistory.filter(product =>
+        product.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredHistory(filtered);
+    } else {
+      setFilteredHistory(productHistory);
+    }
+  }, [searchQuery, productHistory]);
+
+  const loadProductHistory = async () => {
+    try {
+      const history = await AsyncStorage.getItem('productHistory');
+      if (history) {
+        const parsedHistory = JSON.parse(history);
+        // Sortuj historię według częstotliwości użycia i daty ostatniego użycia
+        const sortedHistory = parsedHistory.sort((a: ProductHistory, b: ProductHistory) => {
+          if (b.usageCount !== a.usageCount) {
+            return b.usageCount - a.usageCount;
+          }
+          return new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
+        });
+        setProductHistory(sortedHistory);
+        setFilteredHistory(sortedHistory);
+      }
+    } catch (error) {
+      console.error('Error loading product history:', error);
+    }
+  };
+
+  const updateProductHistory = async (productName: string, productCalories: number) => {
+    try {
+      const history = [...productHistory];
+      const existingProduct = history.find(p => p.name.toLowerCase() === productName.toLowerCase());
+      
+      if (existingProduct) {
+        existingProduct.usageCount += 1;
+        existingProduct.lastUsed = new Date().toISOString();
+      } else {
+        history.push({
+          name: productName,
+          calories: productCalories,
+          lastUsed: new Date().toISOString(),
+          usageCount: 1
+        });
+      }
+
+      await AsyncStorage.setItem('productHistory', JSON.stringify(history));
+      setProductHistory(history);
+    } catch (error) {
+      console.error('Error updating product history:', error);
+    }
+  };
+
+  const handleProductSelect = (product: ProductHistory) => {
+    setMealName(product.name);
+    setCalories(product.calories.toString());
+    setSearchQuery('');
+  };
+
+  const handleMealNameChange = (text: string) => {
+    setMealName(text);
+    if (text.length > 0) {
+      const filtered = productHistory.filter(product =>
+        product.name.toLowerCase().includes(text.toLowerCase())
+      );
+      setSuggestions(filtered.slice(0, 5)); // Pokazujemy tylko 5 pierwszych sugestii
+    } else {
+      setSuggestions([]);
+    }
+  };
+
+  const handleSuggestionSelect = (product: ProductHistory) => {
+    setMealName(product.name);
+    setCalories(product.calories.toString());
+    setSuggestions([]);
+  };
 
   const handleSubmit = async () => {
     if (!mealName.trim()) {
@@ -45,6 +139,9 @@ export default function AddMealForm({ visible, onClose, onMealAdded }: AddMealFo
       meals.push(newMeal);
       await AsyncStorage.setItem('meals', JSON.stringify(meals));
 
+      // Aktualizuj historię produktów
+      await updateProductHistory(mealName.trim(), Number(calories));
+
       setMealName('');
       setCalories('');
       setError('');
@@ -67,13 +164,30 @@ export default function AddMealForm({ visible, onClose, onMealAdded }: AddMealFo
         <View style={styles.modalContent}>
           <Text style={styles.title}>Dodaj nowy posiłek</Text>
           
-          <TextInput
-            label="Nazwa posiłku"
-            value={mealName}
-            onChangeText={setMealName}
-            style={styles.input}
-            mode="outlined"
-          />
+          <View style={styles.inputContainer}>
+            <TextInput
+              label="Nazwa posiłku"
+              value={mealName}
+              onChangeText={handleMealNameChange}
+              style={styles.input}
+              mode="outlined"
+            />
+            {suggestions.length > 0 && (
+              <View style={styles.suggestionsContainer}>
+                {suggestions.map((product) => (
+                  <TouchableOpacity
+                    key={product.name}
+                    onPress={() => handleSuggestionSelect(product)}
+                    style={styles.suggestionItem}
+                  >
+                    <Text style={styles.suggestionText}>
+                      {product.name} ({product.calories} kcal)
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
 
           <TextInput
             label="Kalorie"
@@ -121,12 +235,32 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     width: '90%',
     maxWidth: 400,
+    maxHeight: '80%',
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
+  },
+  searchBar: {
+    marginBottom: 16,
+  },
+  historyContainer: {
+    marginBottom: 16,
+  },
+  historyTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  historyChip: {
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  inputContainer: {
+    position: 'relative',
+    marginBottom: 16,
   },
   input: {
     marginBottom: 16,
@@ -144,5 +278,24 @@ const styles = StyleSheet.create({
     color: 'red',
     marginBottom: 16,
     textAlign: 'center',
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    borderRadius: 4,
+    elevation: 4,
+    zIndex: 1,
+    maxHeight: 200,
+  },
+  suggestionItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  suggestionText: {
+    fontSize: 16,
   },
 }); 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, ScrollView, SafeAreaView } from 'react-native';
-import { TextInput, Button, Text, Card, Divider } from 'react-native-paper';
+import { TextInput, Button, Text, Card, Divider, Switch } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface UserData {
@@ -10,6 +10,11 @@ interface UserData {
   age: number;
   gender: 'male' | 'female';
   activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+  manualCalories: boolean;
+}
+
+interface SettingsScreenProps {
+  onUserDataUpdate: (data: UserData) => Promise<void>;
 }
 
 const activityLevels = [
@@ -20,7 +25,7 @@ const activityLevels = [
   { value: 'very_active', label: 'Bardzo aktywny tryb życia (codziennie)' },
 ];
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ onUserDataUpdate }: SettingsScreenProps) {
   const [userData, setUserData] = useState<UserData>({
     weight: 0,
     height: 0,
@@ -28,6 +33,7 @@ export default function SettingsScreen() {
     age: 30,
     gender: 'male',
     activityLevel: 'moderate',
+    manualCalories: false,
   });
   const [bmi, setBmi] = useState<number | null>(null);
   const [bmiCategory, setBmiCategory] = useState<string>('');
@@ -44,12 +50,12 @@ export default function SettingsScreen() {
   }, [userData.height, userData.weight]);
 
   useEffect(() => {
-    if (userData.height > 0 && userData.weight > 0 && userData.age > 0) {
+    if (userData.height > 0 && userData.weight > 0 && userData.age > 0 && !userData.manualCalories) {
       const newCalories = calculateCalories();
       setCalculatedCalories(newCalories);
       setUserData(prev => ({ ...prev, dailyCalories: newCalories }));
     }
-  }, [userData.height, userData.weight, userData.age, userData.gender, userData.activityLevel]);
+  }, [userData.height, userData.weight, userData.age, userData.gender, userData.activityLevel, userData.manualCalories]);
 
   const loadUserData = async () => {
     try {
@@ -65,7 +71,7 @@ export default function SettingsScreen() {
 
   const saveUserData = async () => {
     try {
-      await AsyncStorage.setItem('userData', JSON.stringify(userData));
+      await onUserDataUpdate(userData);
     } catch (error) {
       console.error('Error saving user data:', error);
     }
@@ -172,6 +178,40 @@ export default function SettingsScreen() {
               </Button>
             ))}
 
+            <View style={styles.manualCaloriesContainer}>
+              <Text style={styles.sectionTitle}>Ręczne ustawienie kalorii</Text>
+              <View style={styles.switchContainer}>
+                <Text>Włącz ręczne ustawienie</Text>
+                <Switch
+                  value={userData.manualCalories}
+                  onValueChange={(value) => {
+                    setUserData({ ...userData, manualCalories: value });
+                    if (!value) {
+                      const newCalories = calculateCalories();
+                      setCalculatedCalories(newCalories);
+                      setUserData(prev => ({ ...prev, dailyCalories: newCalories }));
+                    }
+                  }}
+                />
+              </View>
+            </View>
+
+            {userData.manualCalories ? (
+              <TextInput
+                label="Dzienne zapotrzebowanie kaloryczne"
+                value={userData.dailyCalories.toString()}
+                onChangeText={(text) => setUserData({ ...userData, dailyCalories: Number(text) || 0 })}
+                keyboardType="numeric"
+                style={styles.input}
+                mode="outlined"
+              />
+            ) : (
+              <View style={styles.resultContainer}>
+                <Text style={styles.resultTitle}>Dzienne zapotrzebowanie kaloryczne</Text>
+                <Text style={styles.resultValue}>{calculatedCalories} kcal</Text>
+              </View>
+            )}
+
             <Divider style={styles.divider} />
 
             {bmi !== null && (
@@ -181,11 +221,6 @@ export default function SettingsScreen() {
                 <Text style={styles.resultCategory}>{bmiCategory}</Text>
               </View>
             )}
-
-            <View style={styles.resultContainer}>
-              <Text style={styles.resultTitle}>Dzienne zapotrzebowanie kaloryczne</Text>
-              <Text style={styles.resultValue}>{calculatedCalories} kcal</Text>
-            </View>
 
             <Button
               mode="contained"
@@ -265,5 +300,14 @@ const styles = StyleSheet.create({
   saveButton: {
     marginTop: 16,
     backgroundColor: '#4CAF50',
+  },
+  manualCaloriesContainer: {
+    marginTop: 16,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
 }); 
