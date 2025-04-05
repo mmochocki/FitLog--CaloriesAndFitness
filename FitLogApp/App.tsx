@@ -24,13 +24,13 @@ const AnimatedProgressBar = ({ progress, color, style, themeMode }: { progress: 
   const colors = getColors(themeMode);
   
   const backgroundColor = progress.interpolate({
-    inputRange: [0, 1, 1.35],
-    outputRange: [themeMode === 'dark' ? '#333333' : colors.border, themeMode === 'dark' ? '#333333' : colors.border, colors.warning]
+    inputRange: [0, 1, 1.001],
+    outputRange: [colors.background, colors.background, colors.background]
   });
 
   const fillColor = progress.interpolate({
-    inputRange: [0, 1, 1.35],
-    outputRange: [colors.primary, colors.primary, colors.danger]
+    inputRange: [0, 0.8, 0.801, 1, 1.001, 1.35],
+    outputRange: [colors.primary, colors.primary, colors.warning, colors.warning, colors.danger, colors.danger]
   });
 
   return (
@@ -181,12 +181,12 @@ const App = () => {
     const dailyLimit = userData?.dailyCalories || 2000;
     const percentage = (dayData.totalCalories / dailyLimit) * 100;
     
-    if (percentage > 135) {
-      return '#FF4444'; // Ciemniejszy czerwony - przekroczenie o 35% lub więcej
-    } else if (percentage > 100) {
-      return '#FFE0B2'; // Pastelowy pomarańczowy - przekroczenie o 0-35%
+    if (percentage > 100) {
+      return 'rgba(255, 68, 68, 0.3)'; // Czerwony - przekroczenie limitu
+    } else if (percentage > 80) {
+      return 'rgba(255, 160, 0, 0.3)'; // Pomarańczowy - powyżej 80% limitu
     }
-    return '#C8E6C9'; // Pastelowy zielony - w normie
+    return 'rgba(76, 175, 80, 0.3)'; // Zielony - poniżej 80% limitu
   };
 
   const getDotColor = (date: Date) => {
@@ -197,12 +197,12 @@ const App = () => {
     const dailyLimit = userData?.dailyCalories || 2000;
     const percentage = (dayData.totalCalories / dailyLimit) * 100;
     
-    if (percentage > 135) {
-      return '#FF4444'; // Ciemniejszy czerwony - przekroczenie o 35% lub więcej
-    } else if (percentage > 100) {
-      return '#FFE0B2'; // Pastelowy pomarańczowy - przekroczenie o 0-35%
+    if (percentage > 100) {
+      return '#FF4444'; // Czerwony - przekroczenie limitu
+    } else if (percentage > 80) {
+      return '#FFA000'; // Pomarańczowy - powyżej 80% limitu
     }
-    return '#C8E6C9'; // Pastelowy zielony - w normie
+    return '#4CAF50'; // Zielony - poniżej 80% limitu
   };
 
   const getMarkedDates = () => {
@@ -581,12 +581,12 @@ const App = () => {
     const dailyLimit = userData?.dailyCalories || 2000;
     const percentage = (currentCalories / dailyLimit) * 100;
     
-    if (percentage > 135) {
-      return '#FF4444'; // Czerwony - przekroczenie o więcej niż 35%
-    } else if (percentage > 100) {
-      return '#FFE0B2'; // Pomarańczowy - przekroczenie o 0-35%
+    if (percentage > 100) {
+      return '#FF4444'; // Czerwony - przekroczenie limitu
+    } else if (percentage > 80) {
+      return '#FFA000'; // Pomarańczowy - powyżej 80% limitu
     }
-    return '#4CAF50'; // Zielony - w normie
+    return '#4CAF50'; // Zielony - poniżej 80% limitu
   };
 
   const loadSelectedDateData = async (date: string) => {
@@ -652,16 +652,6 @@ const App = () => {
             }}
             themeMode={themeMode}
           />
-          <View style={styles.settingsButtons}>
-            <Button
-              mode="contained"
-              onPress={clearMealHistory}
-              style={[styles.button, { backgroundColor: themeMode === 'dark' ? colors.buttonDanger : colors.danger }]}
-              textColor="#FFFFFF"
-            >
-              Wyczyść historię posiłków
-            </Button>
-          </View>
           <Animated.View style={[styles.fabContainer, { transform: [{ rotate: spinAnimation }] }]}>
             <FAB
               style={[styles.fab, { backgroundColor: colors.accent }]}
@@ -725,12 +715,12 @@ const App = () => {
                           const dailyLimit = userData?.dailyCalories || 2000;
                           const percentage = (getSelectedDayCalories() / dailyLimit) * 100;
                           
-                          if (percentage > 135) {
-                            return colors.danger;
-                          } else if (percentage > 100) {
-                            return colors.warning;
+                          if (percentage > 100) {
+                            return '#FF4444'; // Czerwony - przekroczenie limitu
+                          } else if (percentage > 80) {
+                            return '#FFA000'; // Pomarańczowy - powyżej 80% limitu
                           }
-                          return colors.primary;
+                          return '#4CAF50'; // Zielony - poniżej 80% limitu
                         })()}
                         style={styles.progressBar}
                         themeMode={themeMode}
